@@ -11,11 +11,21 @@ from typing import Any, Dict, List
 
 from tqdm import tqdm
 
-from helm.common.general import ensure_directory_exists, write, asdict_without_nones
+from helm.common.general import (
+    ensure_directory_exists,
+    write,
+    asdict_without_nones,
+)
 from helm.common.hierarchical_logger import hlog, htrack_block
 from helm.common.cache import cache_stats
 from .augmentations.data_augmenter import DataAugmenterSpec
-from .scenarios.scenario import Scenario, ScenarioSpec, create_scenario, Instance, with_instance_ids
+from .scenarios.scenario import (
+    Scenario,
+    ScenarioSpec,
+    create_scenario,
+    Instance,
+    with_instance_ids,
+)
 from .adaptation.adapters.adapter import Adapter
 from .adaptation.adapters.adapter_factory import AdapterFactory
 from .adaptation.scenario_state import ScenarioState
@@ -25,8 +35,16 @@ from .executor import ExecutionSpec, Executor
 from .metrics.dry_run_metrics import DryRunMetric
 from .metrics.metric_name import MetricName
 from .metrics.metric_service import MetricService
-from .metrics.metric import Metric, MetricSpec, MetricResult, PerInstanceStats, create_metric, Stat
+from .metrics.metric import (
+    Metric,
+    MetricSpec,
+    MetricResult,
+    PerInstanceStats,
+    create_metric,
+    Stat,
+)
 from .window_services.tokenizer_service import TokenizerService
+import helm.common.clr_contrib as clr_contrib
 
 
 LATEST_SYMLINK: str = "latest"
@@ -79,27 +97,38 @@ def remove_stats_nans(stats: List[Stat]) -> List[Stat]:
 
     - https://github.com/stanford-crfm/helm/issues/1765
     - https://bugs.python.org/issue40633
-    - https://docs.python.org/3/library/json.html#infinite-and-nan-number-values"""
+    - https://docs.python.org/3/library/json.html#infinite-and-nan-number-values
+    """
     result: List[Stat] = []
     for stat in stats:
         if math.isnan(stat.sum):
-            hlog(f"WARNING: Removing stat {stat.name.name} because its value is NaN")
+            hlog(
+                f"WARNING: Removing stat {stat.name.name} because its value is NaN"
+            )
             continue
         result.append(stat)
     return result
 
 
-def remove_per_instance_stats_nans(per_instance_stats_list: List[PerInstanceStats]) -> List[PerInstanceStats]:
+def remove_per_instance_stats_nans(
+    per_instance_stats_list: List[PerInstanceStats],
+) -> List[PerInstanceStats]:
     """Return a new list of PerInstanceStats with stats with NaNs removed.
 
     Python's stdlib json.dumps() will produce invalid JSON when serializing a NaN. See:
 
     - https://github.com/stanford-crfm/helm/issues/1765
     - https://bugs.python.org/issue40633
-    - https://docs.python.org/3/library/json.html#infinite-and-nan-number-values"""
+    - https://docs.python.org/3/library/json.html#infinite-and-nan-number-values
+    """
     result: List[PerInstanceStats] = []
     for per_instance_stats in per_instance_stats_list:
-        result.append(dataclasses.replace(per_instance_stats, stats=remove_stats_nans(per_instance_stats.stats)))
+        result.append(
+            dataclasses.replace(
+                per_instance_stats,
+                stats=remove_stats_nans(per_instance_stats.stats),
+            )
+        )
     return result
 
 
@@ -120,10 +149,17 @@ class Runner:
         skip_completed_runs: bool,
         exit_on_error: bool,
     ):
-        self.executor = Executor(execution_spec)
+        if clr_contrib.USE_THREE_STEPS_SG_IMPLEMENTATION:
+            self.executor = clr_contrib.MultiStepExecutor(execution_spec)
+        else:
+            self.executor = Executor(execution_spec)
         self.dry_run: bool = execution_spec.dry_run
-        self.tokenizer_service = TokenizerService(self.executor.service, execution_spec.auth)
-        self.metric_service = MetricService(self.executor.service, execution_spec.auth)
+        self.tokenizer_service = TokenizerService(
+            self.executor.service, execution_spec.auth
+        )
+        self.metric_service = MetricService(
+            self.executor.service, execution_spec.auth
+        )
         self.skip_instances: bool = skip_instances
         self.cache_instances: bool = cache_instances
         self.cache_instances_only: bool = cache_instances_only
@@ -135,7 +171,9 @@ class Runner:
         self.scenarios_path: str = os.path.join(output_path, "scenarios")
         ensure_directory_exists(self.scenarios_path)
         # Decide where to save input instances
-        self.instances_path: str = os.path.join(output_path, "scenario_instances")
+        self.instances_path: str = os.path.join(
+            output_path, "scenario_instances"
+        )
         ensure_directory_exists(self.instances_path)
 
         # Output the results under a folder with the name of the suite
@@ -175,10 +213,14 @@ class Runner:
                 if self.exit_on_error:
                     raise e
                 else:
-                    hlog(f"Error when running {run_spec.name}:\n{traceback.format_exc()}")
+                    hlog(
+                        f"Error when running {run_spec.name}:\n{traceback.format_exc()}"
+                    )
                     failed_run_specs.append(run_spec)
         if not self.exit_on_error and failed_run_specs:
-            failed_runs_str = ", ".join([f'"{run_spec.name}"' for run_spec in failed_run_specs])
+            failed_runs_str = ", ".join(
+                [f'"{run_spec.name}"' for run_spec in failed_run_specs]
+            )
             raise RunnerError(f"Failed runs: [{failed_runs_str}]")
 
     def run_one(self, run_spec: RunSpec):
@@ -190,10 +232,18 @@ class Runner:
         ensure_directory_exists(scenario.output_path)
 
         # This 'output_path' will be used when the model's input instances are saved.
-        args_str = ",".join([f"{k}={v}" for k, v in sorted(run_spec.scenario_spec.args.items())])
-        scenario_name_with_args = f"{scenario.name}:{args_str}" if args_str else f"{scenario.name}"
-        input_instances_output_path = os.path.join(self.instances_path, scenario_name_with_args)
-        input_instances_file_path = os.path.join(input_instances_output_path, "input_instances.json")
+        args_str = ",".join(
+            [f"{k}={v}" for k, v in sorted(run_spec.scenario_spec.args.items())]
+        )
+        scenario_name_with_args = (
+            f"{scenario.name}:{args_str}" if args_str else f"{scenario.name}"
+        )
+        input_instances_output_path = os.path.join(
+            self.instances_path, scenario_name_with_args
+        )
+        input_instances_file_path = os.path.join(
+            input_instances_output_path, "input_instances.json"
+        )
 
         run_path: str = os.path.join(self.runs_path, run_spec.name)
         ensure_directory_exists(run_path)
@@ -201,30 +251,44 @@ class Runner:
         if self.skip_completed_runs and self._is_run_completed(run_spec):
             # If scenario_state.json exists, assume that all other output files exist
             # because scenario_state.json is the last output file to be written.
-            hlog(f"Skipping run {run_spec.name} because run is completed and all output files exist.")
+            hlog(
+                f"Skipping run {run_spec.name} because run is completed and all output files exist."
+            )
             return
 
         # Fetch and initialize the Adapter based on the `AdapterSpec`.
-        adapter: Adapter = AdapterFactory.get_adapter(run_spec.adapter_spec, self.tokenizer_service)
+        adapter: Adapter = AdapterFactory.get_adapter(
+            run_spec.adapter_spec, self.tokenizer_service
+        )
 
         instances: List[Instance]
         if self.skip_instances:
             instances = []
         else:
-            if self.cache_instances and os.path.exists(input_instances_file_path):
+            if self.cache_instances and os.path.exists(
+                input_instances_file_path
+            ):
                 with open(input_instances_file_path) as f:
                     json_instances: List[Dict[str, Any]] = json.load(f)
-                instances = [dacite.from_dict(Instance, instance) for instance in json_instances]
+                instances = [
+                    dacite.from_dict(Instance, instance)
+                    for instance in json_instances
+                ]
             else:
                 # Create the instances of the scenario
                 with htrack_block("scenario.get_instances"):
                     instances = scenario.get_instances()
-        if self.cache_instances and not os.path.exists(input_instances_file_path):
+        if self.cache_instances and not os.path.exists(
+            input_instances_file_path
+        ):
             # Save instances to file
             ensure_directory_exists(input_instances_output_path)
             write(
                 os.path.join(input_instances_file_path),
-                json.dumps([asdict_without_nones(instance) for instance in instances], indent=2),
+                json.dumps(
+                    [asdict_without_nones(instance) for instance in instances],
+                    indent=2,
+                ),
             )
         if self.cache_instances_only:
             return  # Exit after saving the instances.
@@ -241,7 +305,9 @@ class Runner:
         )
 
         # Adapt (convert to requests)
-        scenario_state: ScenarioState = adapter.adapt(instances, self.executor.execution_spec.parallelism)
+        scenario_state: ScenarioState = adapter.adapt(
+            instances, self.executor.execution_spec.parallelism
+        )
 
         # Execute (fill up results)
         scenario_state = self.executor.execute(scenario_state)
@@ -250,7 +316,12 @@ class Runner:
         # When performing a dry run, only estimate the number of tokens instead
         # of calculating the metrics.
         metrics: List[Metric] = (
-            [DryRunMetric()] if self.dry_run else [create_metric(metric_spec) for metric_spec in run_spec.metric_specs]
+            [DryRunMetric()]
+            if self.dry_run
+            else [
+                create_metric(metric_spec)
+                for metric_spec in run_spec.metric_specs
+            ]
         )
         stats: List[Stat] = []
         per_instance_stats: List[PerInstanceStats] = []
@@ -268,7 +339,9 @@ class Runner:
 
         # Check that there aren't duplicate `Stat`s
         # Note: doesn't catch near misses.
-        metric_counts: typing.Counter[MetricName] = Counter([stat.name for stat in stats])
+        metric_counts: typing.Counter[MetricName] = Counter(
+            [stat.name for stat in stats]
+        )
         for metric_name, count in metric_counts.items():
             if count > 1:
                 hlog(f"WARNING: duplicate metric name {metric_name}")
@@ -281,21 +354,44 @@ class Runner:
             return
 
         # Output benchmarking information and results to files
-        write(os.path.join(run_path, "run_spec.json"), json.dumps(asdict_without_nones(run_spec), indent=2))
+        write(
+            os.path.join(run_path, "run_spec.json"),
+            json.dumps(asdict_without_nones(run_spec), indent=2),
+        )
 
         # Write out scenario
-        write(os.path.join(run_path, "scenario.json"), json.dumps(asdict_without_nones(scenario), indent=2))
+        write(
+            os.path.join(run_path, "scenario.json"),
+            json.dumps(asdict_without_nones(scenario), indent=2),
+        )
 
         # Write scenario state
-        write(os.path.join(run_path, "scenario_state.json"), json.dumps(asdict_without_nones(scenario_state), indent=2))
+        write(
+            os.path.join(run_path, "scenario_state.json"),
+            json.dumps(asdict_without_nones(scenario_state), indent=2),
+        )
 
         write(
             os.path.join(run_path, "stats.json"),
-            json.dumps([asdict_without_nones(stat) for stat in remove_stats_nans(stats)], indent=2),
+            json.dumps(
+                [
+                    asdict_without_nones(stat)
+                    for stat in remove_stats_nans(stats)
+                ],
+                indent=2,
+            ),
         )
         write(
             os.path.join(run_path, "per_instance_stats.json"),
-            json.dumps(list(map(asdict_without_nones, remove_per_instance_stats_nans(per_instance_stats))), indent=2),
+            json.dumps(
+                list(
+                    map(
+                        asdict_without_nones,
+                        remove_per_instance_stats_nans(per_instance_stats),
+                    )
+                ),
+                indent=2,
+            ),
         )
 
         cache_stats.print_status()

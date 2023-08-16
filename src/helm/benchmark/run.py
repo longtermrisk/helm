@@ -1,4 +1,5 @@
 import argparse
+import copy
 from dataclasses import replace
 from typing import List, Optional
 
@@ -10,16 +11,26 @@ from helm.proxy.clients.huggingface_model_registry import (
     register_huggingface_hub_model_config,
     register_huggingface_local_model_config,
 )
-from helm.proxy.clients.remote_model_registry import check_and_register_remote_model
-from helm.proxy.services.remote_service import create_authentication, add_service_args
+from helm.proxy.clients.remote_model_registry import (
+    check_and_register_remote_model,
+)
+from helm.proxy.services.remote_service import (
+    create_authentication,
+    add_service_args,
+)
 
-from helm.benchmark.model_metadata_registry import register_model_metadata_from_path
-from helm.benchmark.model_deployment_registry import register_model_deployments_from_path
+from helm.benchmark.model_metadata_registry import (
+    register_model_metadata_from_path,
+)
+from helm.benchmark.model_deployment_registry import (
+    register_model_deployments_from_path,
+)
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec
 from .executor import ExecutionSpec
 from .runner import Runner, RunSpec, LATEST_SYMLINK
 from .slurm_runner import SlurmRunner
 from .run_specs import construct_run_specs
+import helm.common.clr_contrib as clr_contrib
 
 
 def run_entries_to_run_specs(
@@ -37,29 +48,67 @@ def run_entries_to_run_specs(
         if priority is not None and entry.priority > priority:
             continue
 
-        for run_spec in construct_run_specs(parse_object_spec(entry.description)):
+        for run_spec in construct_run_specs(
+            parse_object_spec(entry.description)
+        ):
             # Filter by models
-            if models_to_run and run_spec.adapter_spec.model not in models_to_run:
+            if (
+                models_to_run
+                and run_spec.adapter_spec.model not in models_to_run
+            ):
                 continue
 
             # Filter by groups
-            if groups_to_run and not any(group in groups_to_run for group in run_spec.groups):
+            if groups_to_run and not any(
+                group in groups_to_run for group in run_spec.groups
+            ):
                 continue
 
             # Modify AdapterSpec
             adapter_spec: AdapterSpec = run_spec.adapter_spec
             if max_eval_instances is not None:
-                adapter_spec = replace(adapter_spec, max_eval_instances=max_eval_instances)
-            if num_train_trials is not None or adapter_spec.max_train_instances == 0:
                 adapter_spec = replace(
-                    adapter_spec, num_train_trials=1 if adapter_spec.max_train_instances == 0 else num_train_trials
+                    adapter_spec, max_eval_instances=max_eval_instances
                 )
+            if (
+                num_train_trials is not None
+                or adapter_spec.max_train_instances == 0
+            ):
+                adapter_spec = replace(
+                    adapter_spec,
+                    num_train_trials=1
+                    if adapter_spec.max_train_instances == 0
+                    else num_train_trials,
+                )
+            if clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION:
+                adapter_spec = replace(
+                    adapter_spec,
+                    instructions=clr_contrib.SINGLE_STEP_PROMPT
+                    + adapter_spec.instructions,
+                )
+            # Not working, see the clr_contrib.py file for explanations
+            # if (
+            #     clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION
+            #     or clr_contrib.USE_THREE_STEPS_SG_IMPLEMENTATION
+            # ):
+            #     print("Setting CURRENT_RUN_SPEC_ADAPTER_SPEC")
+            #     print("adapter_spec", adapter_spec)
+            #     clr_contrib.CURRENT_RUN_SPEC_ADAPTER_SPEC = copy.deepcopy(
+            #         adapter_spec
+            #     )
             run_spec = replace(run_spec, adapter_spec=adapter_spec)
-
             # Append groups
             if entry.groups is not None:
-                groups_name: str = "" if len(entry.groups) == 0 else f",groups={'-'.join(sorted(entry.groups))}"
-                run_spec = replace(run_spec, name=run_spec.name + groups_name, groups=run_spec.groups + entry.groups)
+                groups_name: str = (
+                    ""
+                    if len(entry.groups) == 0
+                    else f",groups={'-'.join(sorted(entry.groups))}"
+                )
+                run_spec = replace(
+                    run_spec,
+                    name=run_spec.name + groups_name,
+                    groups=run_spec.groups + entry.groups,
+                )
 
             run_specs.append(run_spec)
 
@@ -112,9 +161,19 @@ def run_benchmarking(
 
 def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
-        "-o", "--output-path", type=str, help="Where to save all the output", default="benchmark_output"
+        "-o",
+        "--output-path",
+        type=str,
+        help="Where to save all the output",
+        default="benchmark_output",
     )
-    parser.add_argument("-n", "--num-threads", type=int, help="Max number of threads to make requests", default=4)
+    parser.add_argument(
+        "-n",
+        "--num-threads",
+        type=int,
+        help="Max number of threads to make requests",
+        default=4,
+    )
     parser.add_argument(
         "--skip-instances",
         action="store_true",
@@ -178,13 +237,16 @@ def add_run_args(parser: argparse.ArgumentParser):
 
 
 def validate_args(args):
-    assert args.suite != LATEST_SYMLINK, f"Suite name can't be '{LATEST_SYMLINK}'"
+    assert (
+        args.suite != LATEST_SYMLINK
+    ), f"Suite name can't be '{LATEST_SYMLINK}'"
     if args.cache_instances_only:
-        assert args.cache_instances, "If --cache-instances-only is set, --cache-instances must also be set."
+        assert (
+            args.cache_instances
+        ), "If --cache-instances-only is set, --cache-instances must also be set."
 
 
-@htrack(None)
-def main():
+def get_args_from_parser():
     parser = argparse.ArgumentParser()
     add_service_args(parser)
     parser.add_argument(
@@ -203,7 +265,8 @@ def main():
     parser.add_argument(
         "--groups-to-run",
         nargs="+",
-        help="Only RunSpecs with these (scenario) groups specified. " "If no group is specified, runs with all groups.",
+        help="Only RunSpecs with these (scenario) groups specified. "
+        "If no group is specified, runs with all groups.",
         default=None,
     )
     parser.add_argument(
@@ -223,7 +286,9 @@ def main():
         help="Run RunSpecs with priority less than or equal to this number. "
         "If a value for --priority is not specified, run on everything",
     )
-    parser.add_argument("-r", "--run-specs", nargs="*", help="Specifies what to run", default=[])
+    parser.add_argument(
+        "-r", "--run-specs", nargs="*", help="Specifies what to run", default=[]
+    )
     parser.add_argument(
         "--enable-huggingface-models",
         nargs="+",
@@ -264,6 +329,12 @@ def main():
     )
     add_run_args(parser)
     args = parser.parse_args()
+    return args
+
+
+@htrack(None)
+def main():
+    args = get_args_from_parser()
     validate_args(args)
 
     for huggingface_model_name in args.enable_huggingface_models:
@@ -276,14 +347,19 @@ def main():
         register_model_deployments_from_path(model_deployment_paths)
 
     if args.server_url and args.enable_remote_models:
-        check_and_register_remote_model(args.server_url, args.enable_remote_models)
+        check_and_register_remote_model(
+            args.server_url, args.enable_remote_models
+        )
 
     run_entries: List[RunEntry] = []
     if args.conf_paths:
         run_entries.extend(read_run_entries(args.conf_paths).entries)
     if args.run_specs:
         run_entries.extend(
-            [RunEntry(description=description, priority=1, groups=None) for description in args.run_specs]
+            [
+                RunEntry(description=description, priority=1, groups=None)
+                for description in args.run_specs
+            ]
         )
 
     run_specs = run_entries_to_run_specs(
@@ -301,7 +377,9 @@ def main():
         return
 
     auth: Authentication = (
-        Authentication("") if args.skip_instances or not args.server_url else create_authentication(args)
+        Authentication("")
+        if args.skip_instances or not args.server_url
+        else create_authentication(args)
     )
 
     run_benchmarking(
