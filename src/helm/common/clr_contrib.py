@@ -1,19 +1,13 @@
 import copy
 from dataclasses import replace
 
-import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
-from helm.benchmark.adaptation.adapters.adapter import Adapter
-from helm.benchmark.adaptation.adapters.adapter_factory import AdapterFactory
-from helm.benchmark.adaptation.prompt import Prompt
 from helm.benchmark.adaptation.request_state import RequestState
-from helm.benchmark.adaptation.scenario_state import ScenarioState
-from helm.benchmark.executor import Executor, ExecutorError
-from helm.benchmark.window_services.tokenizer_service import TokenizerService
-from helm.common.hierarchical_logger import hlog
-from helm.common.request import RequestResult, Sequence
-from helm.proxy.clients.anthropic_client import AnthropicClient
+from helm.benchmark.executor import Executor
+from helm.common.request import RequestResult
 
-USE_SINGLE_STEP_SG_IMPLEMENTATION = False
+import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
+
+USE_SINGLE_STEP_SG_IMPLEMENTATION = True
 USE_THREE_STEPS_SG_IMPLEMENTATION = False
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
@@ -294,7 +288,7 @@ class MultiStepExecutor(Executor):
         if need_to_rewrite_prompt:
             new_request = replace(
                 initial_request,
-                request=self.write_replacement_prompt(initial_request),
+                prompt=self.write_replacement_prompt(initial_request),
             )
             new_request = replace(
                 new_request, max_tokens=2 * len(initial_request.prompt)
@@ -320,7 +314,7 @@ class MultiStepExecutor(Executor):
             print("========= END SG implementation step 2 =============")
             rewritten_request = replace(
                 initial_request,
-                request=self.extract_rewritten_prompt(result_step_2),
+                prompt=self.extract_rewritten_prompt(result_step_2),
             )
             state = replace(state, request=rewritten_request)
         else:
