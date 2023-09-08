@@ -1,3 +1,4 @@
+import traceback
 from typing import Any, Dict, List, Optional
 import json
 import requests
@@ -60,16 +61,16 @@ class AnthropicClient(Client):
     def __init__(self, cache_config: CacheConfig, api_key: Optional[str] = None):
         self.api_key: Optional[str] = api_key
         self.cache = Cache(cache_config)
+        self._client = anthropic.Anthropic(api_key=api_key) if api_key else None
         with AnthropicClient.LOCK:
             self.tokenizer: PreTrainedTokenizerBase = PreTrainedTokenizerFast(
-                tokenizer_object=anthropic.get_tokenizer()
+                tokenizer_object=self._client.get_tokenizer()
             )
-        self._client = anthropic.Client(api_key) if api_key else None
 
     def _send_request(self, raw_request: Dict[str, Any]) -> Dict[str, Any]:
         if self.api_key is None:
             raise Exception("API key is not set. Please set it in the HELM config file.")
-        result = self._client.completion(**raw_request)
+        result = self._client.completions.create(**raw_request)
         assert "error" not in result, f"Request failed with error: {result['error']}"
         return result
 
@@ -122,6 +123,13 @@ class AnthropicClient(Client):
 
                 def do_it():
                     result = self._send_request(raw_request)
+                    result = {
+                        "completion": result.completion,
+                        "model": result.model,
+                        "stop_reason": result.stop_reason,
+                        "stop": result.stop,
+                        "log_id": result.log_id,
+                    }
                     assert "completion" in result, f"Invalid response: {result}"
                     return result
 
@@ -159,7 +167,13 @@ class AnthropicClient(Client):
                         embedding=[],
                         error_flags=ErrorFlags(is_retriable=False, is_fatal=False),
                     )
-                return RequestResult(success=False, cached=False, error=str(error), completions=[], embedding=[])
+                return RequestResult(
+                    success=False,
+                    cached=False,
+                    error=str(error),
+                    completions=[],
+                    embedding=[],
+                )
 
             # Post process the completion.
             response["completion"] = self._filter_completion(response["completion"], request.max_tokens)
@@ -239,7 +253,8 @@ class AnthropicClient(Client):
             def do_it():
                 return {
                     "text": self.tokenizer.decode(
-                        request.tokens, clean_up_tokenization_spaces=request.clean_up_tokenization_spaces
+                        request.tokens,
+                        clean_up_tokenization_spaces=request.clean_up_tokenization_spaces,
                     )
                 }
 
@@ -249,7 +264,10 @@ class AnthropicClient(Client):
             return DecodeRequestResult(success=False, cached=False, error=error, text="")
 
         return DecodeRequestResult(
-            success=True, cached=cached, text=result["text"], request_time=result["request_time"]
+            success=True,
+            cached=cached,
+            text=result["text"],
+            request_time=result["request_time"],
         )
 
 
@@ -283,7 +301,12 @@ class AnthropicLegacyClient(Client):
     BASE_ENDPOINT: str = "feedback-frontend-v2.he.anthropic.com"
     TOP_K_LOGPROBS_ENDPOINT: str = "topk_logprobs"
 
-    LOGPROBS_RESPONSE_KEYS: List[str] = ["tokens", "logprobs", "topk_tokens", "topk_logprobs"]
+    LOGPROBS_RESPONSE_KEYS: List[str] = [
+        "tokens",
+        "logprobs",
+        "topk_tokens",
+        "topk_logprobs",
+    ]
     EMPTY_LOGPROBS_RESPONSE: Dict[str, List[Any]] = {
         "tokens": [],
         "logprobs": [],
@@ -346,7 +369,9 @@ class AnthropicLegacyClient(Client):
                 return {
                     "text": request.prompt,
                     "logprobs": self.make_logprobs_request(
-                        request.prompt, request.top_k_per_token, request.model_engine
+                        request.prompt,
+                        request.top_k_per_token,
+                        request.model_engine,
                     ),
                     "stop_reason": "length",  # Set `stop_reason` to "length" because max_tokens is 0
                 }
@@ -359,7 +384,11 @@ class AnthropicLegacyClient(Client):
                         f"wss://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{request.model_engine}/sample"
                         f"?{urllib.parse.urlencode(auth)}"
                     )
-                    ws = websocket.create_connection(endpoint, header=auth)
+                    header = {
+                        "key": f"Bearer {self.api_key}",
+                        # "anthropic-version": "2023-06-01",
+                    }
+                    ws = websocket.create_connection(endpoint, header=header)
 
                     websocket_established_connection_time: float = time.time() - start
                     hlog(f"Established connection ({websocket_established_connection_time:.2f}s)")
@@ -396,7 +425,7 @@ class AnthropicLegacyClient(Client):
 
                         completion_text: str = response["completion"]
                         assert completion_text.startswith(previous_completion_text), (
-                            f"Could not compute next token:\n"
+                            "Could not compute next token:\n"
                             f"request: {raw_request}\n"
                             f"previous: {repr(previous_completion_text)}\n"
                             f"completion: {repr(completion_text)}"
@@ -420,13 +449,15 @@ class AnthropicLegacyClient(Client):
                     ws.close()
                 except websocket.WebSocketException as error:
                     hlog(str(error))
-                    raise AnthropicRequestError(f"Anthropic error: {str(error)}")
+                    raise AnthropicRequestError(f"Anthropic error: {str(error)}. Traceback: {traceback.format_exc()}")
 
                 # Anthropic doesn't support echoing the prompt, so we have to manually prepend the completion
                 # with the prompt when `echo_prompt` is True.
                 text: str = request.prompt + response["completion"] if request.echo_prompt else response["completion"]
                 logprobs = self.make_logprobs_request(
-                    request.prompt + response["completion"], request.top_k_per_token, request.model_engine
+                    request.prompt + response["completion"],
+                    request.top_k_per_token,
+                    request.model_engine,
                 )
 
                 check_logprobs: bool = False
@@ -441,7 +472,7 @@ class AnthropicLegacyClient(Client):
                         # This is a known limitation with the Anthropic API. For now keep track of the
                         # entries with the mismatch.
                         hlog(
-                            f"WARNING: naive truncation for logprobs did not work."
+                            "WARNING: naive truncation for logprobs did not work."
                             f"\nRequest:{raw_request}\nExpected: {tokens}\nActual: {logprobs['tokens']}"
                         )
                         check_logprobs = True
@@ -479,17 +510,32 @@ class AnthropicLegacyClient(Client):
                 )
                 response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
             except AnthropicRequestError as error:
-                return RequestResult(success=False, cached=False, error=str(error), completions=[], embedding=[])
+                return RequestResult(
+                    success=False,
+                    cached=False,
+                    error=str(error),
+                    completions=[],
+                    embedding=[],
+                )
 
             sequence_logprob: float = 0
             tokens: List[Token] = []
             log_probs: Dict[str, List[Any]] = response["logprobs"]
 
             for text, token_logprob, all_logprobs, all_tokens in zip(
-                log_probs["tokens"], log_probs["logprobs"], log_probs["topk_logprobs"], log_probs["topk_tokens"]
+                log_probs["tokens"],
+                log_probs["logprobs"],
+                log_probs["topk_logprobs"],
+                log_probs["topk_tokens"],
             ):
                 top_logprobs: Dict[str, float] = {text: logprob for text, logprob in zip(all_tokens, all_logprobs)}
-                tokens.append(Token(text=text, logprob=token_logprob, top_logprobs=top_logprobs))
+                tokens.append(
+                    Token(
+                        text=text,
+                        logprob=token_logprob,
+                        top_logprobs=top_logprobs,
+                    )
+                )
                 sequence_logprob += token_logprob
 
             finish_reason: str = response["stop_reason"]
@@ -532,11 +578,14 @@ class AnthropicLegacyClient(Client):
         try:
             logprobs_response = requests.request(
                 method="POST",
-                url=f"https://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{model_engine}/"
-                f"{AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT}",
+                url=(
+                    f"https://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{model_engine}/"
+                    f"{AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT}"
+                ),
                 headers={
                     "Authorization": f"BEARER {self.api_key}",
                     "Content-Type": "application/json",
+                    # "anthropic-version": "2023-06-01",
                 },
                 data=json.dumps({"q": text, "k": top_k_per_token, "is_replicated": True}),
             )
