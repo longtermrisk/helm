@@ -9,6 +9,7 @@ import websocket
 import anthropic
 import threading
 
+from helm.benchmark import run_specs
 from helm.common.cache import Cache, CacheConfig
 from helm.common.hierarchical_logger import htrack_block, hlog
 from helm.common.request import (

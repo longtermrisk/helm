@@ -619,7 +619,9 @@ def get_verifiability_judgment_metric_specs() -> List[MetricSpec]:
 def get_instruction_following_critique_metric_specs(num_respondents: int) -> List[MetricSpec]:
     return [
         MetricSpec(
-            class_name="helm.benchmark.metrics.instruction_following_critique_metrics.InstructionFollowingCritiqueMetric",  # noqa E501
+            class_name=(  # noqa E501
+                "helm.benchmark.metrics.instruction_following_critique_metrics.InstructionFollowingCritiqueMetric"
+            ),
             args={"num_respondents": num_respondents},
         )
     ]
@@ -1099,8 +1101,10 @@ def get_math_spec(
     )
 
     return RunSpec(
-        name=f"math:subject={subject},level={level},"
-        f"use_official_examples={use_official_examples},use_chain_of_thought={use_chain_of_thought}",
+        name=(
+            f"math:subject={subject},level={level},"
+            f"use_official_examples={use_official_examples},use_chain_of_thought={use_chain_of_thought}"
+        ),
         scenario_spec=scenario_spec,
         adapter_spec=adapter_spec,
         metric_specs=get_math_metric_specs(use_chain_of_thought) + get_generative_harms_metric_specs(),  # type: ignore
@@ -1256,7 +1260,7 @@ def get_disinformation_spec(capability: str = "reiteration", topic: Optional[str
     else:
         raise ValueError(
             f"Unsupported evaluation for disinformation capability '{capability}'. "
-            f"Please choose one of 'reiteration' or 'wedging'."
+            "Please choose one of 'reiteration' or 'wedging'."
         )
 
     # Self-BLEU isn't defined for a single sequence.
@@ -1276,6 +1280,9 @@ def get_disinformation_spec(capability: str = "reiteration", topic: Optional[str
     )
 
 
+HUMANEVAL_STOPS_TOKENS = ["\nclass", "\ndef", "\nif", "\nprint"]
+
+
 @run_spec_function("code")
 def get_code_spec(dataset: str, timeout=3) -> RunSpec:
     # `timeout` trades accuracy for time. Used exclusively for APPS. Default from original APPS codebase.
@@ -1287,7 +1294,7 @@ def get_code_spec(dataset: str, timeout=3) -> RunSpec:
         adapter_spec = get_completion_adapter_spec(
             temperature=0.2,
             # Taken from the original OpenAI paper to prevent the further generation of irrelevant classes/functions
-            stop_sequences=["\nclass", "\ndef", "\nif", "\nprint"],
+            stop_sequences=HUMANEVAL_STOPS_TOKENS,
             max_tokens=600,
         )
     else:  # apps.
@@ -1579,8 +1586,10 @@ def get_dyck_language_spec(num_parenthesis_pairs: int) -> RunSpec:
     )
 
     adapter_spec = get_completion_adapter_spec(
-        instructions="Please complete the rest of the following Dyck sequences, "
-        "making sure that the parentheses are closed properly.",
+        instructions=(
+            "Please complete the rest of the following Dyck sequences, "
+            "making sure that the parentheses are closed properly."
+        ),
         input_prefix="Input: ",
         max_tokens=5,
         max_train_instances=3,  # Determined by looking at average length of examples to see what fits
@@ -2312,6 +2321,19 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
             else:
                 format_expander = FormatPromptRunExpander(
                     prefix=anthropic.HUMAN_PROMPT, suffix=f"{anthropic.AI_PROMPT} {AnthropicClient.PROMPT_ANSWER_START}"
+                )
+            if "code:dataset=humaneval" in run_spec.name:
+                assert "model=anthropic_" in run_spec.name
+                print(
+                    f"WARNING, appending explanation to the prompt to have the completion be the content of the"
+                    f" function without the stop tokens."
+                )
+                extra_instructions = (
+                    "# (When writing a function, write directly it's content, do not use the tokens:"
+                    f" {HUMANEVAL_STOPS_TOKENS})"
+                )
+                format_expander = FormatPromptRunExpander(
+                    prefix=format_expander.prefix + "\n" + extra_instructions + "\n\n", suffix=format_expander.suffix
                 )
             run_spec = singleton(add_to_stop_expander.expand(run_spec))
             run_spec = singleton(increase_max_tokens_expander.expand(run_spec))
