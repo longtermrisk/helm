@@ -27,10 +27,15 @@ from helm.benchmark.adaptation.adapters.adapter_factory import (
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec
 from helm.benchmark.window_services.window_service import WindowService
-from helm.benchmark.window_services.window_service_factory import WindowServiceFactory
+from helm.benchmark.window_services.window_service_factory import (
+    WindowServiceFactory,
+)
 from helm.benchmark.window_services.tokenizer_service import TokenizerService
 from helm.benchmark.scenarios.scenario import CORRECT_TAG, Instance, Reference
-from helm.benchmark.scenarios.math_scenario import is_equiv, is_equiv_chain_of_thought
+from helm.benchmark.scenarios.math_scenario import (
+    is_equiv,
+    is_equiv_chain_of_thought,
+)
 from helm.benchmark.scenarios.code_scenario import CodeReference
 from . import code_metrics_helper
 from .metric import Metric, get_unique_stat_by_name
@@ -47,8 +52,12 @@ except LookupError:
 
 EFFICIENCY_DATA_PACKAGE: str = "helm.benchmark.efficiency_data"
 
-INFERENCE_IDEALIZED_RUNTIMES_JSON_FILENAME: str = "inference_idealized_runtimes.json"
-INFERENCE_DENOISED_RUNTIMES_JSON_FILENAME: str = "inference_denoised_runtimes.json"
+INFERENCE_IDEALIZED_RUNTIMES_JSON_FILENAME: str = (
+    "inference_idealized_runtimes.json"
+)
+INFERENCE_DENOISED_RUNTIMES_JSON_FILENAME: str = (
+    "inference_denoised_runtimes.json"
+)
 TRAINING_EFFICIENCY_JSON_FILENAME: str = "training_efficiency.json"
 
 
@@ -60,31 +69,43 @@ def compute_estimated_time_from_prompt_size_and_num_output_tokens(
 ) -> Optional[float]:
     estimated_runtime: Optional[float]
     if request_state.request.model in inference_runtimes_dict:
-        inference_runtimes_dict_for_model = inference_runtimes_dict[request_state.request.model]
-        runtime_per_output_token: float = inference_runtimes_dict_for_model["runtime_per_output_token"]
-        raw_runtimes_for_prompt_tokens: Dict[str, float] = inference_runtimes_dict_for_model[
-            "runtime_for_prompt_tokens"
+        inference_runtimes_dict_for_model = inference_runtimes_dict[
+            request_state.request.model
         ]
-        runtimes_for_prompt_tokens: Dict[int, float] = {int(k): v for (k, v) in raw_runtimes_for_prompt_tokens.items()}
+        runtime_per_output_token: float = inference_runtimes_dict_for_model[
+            "runtime_per_output_token"
+        ]
+        raw_runtimes_for_prompt_tokens: Dict[
+            str, float
+        ] = inference_runtimes_dict_for_model["runtime_for_prompt_tokens"]
+        runtimes_for_prompt_tokens: Dict[int, float] = {
+            int(k): v for (k, v) in raw_runtimes_for_prompt_tokens.items()
+        }
 
         runtime_for_prompt_tokens: Optional[float] = None
-        largest_num_tokens_in_efficiency_dict: int = max(runtimes_for_prompt_tokens.keys())
+        largest_num_tokens_in_efficiency_dict: int = max(
+            runtimes_for_prompt_tokens.keys()
+        )
         # Find the smallest num_prompt_tokens larger than the number of tokens in the given prompt,
         # then scale runtime in dict by (num_prompt_tokens / key) to get more accurate estimate: we
         # assume that we can encode the prompt at the same throughput as the smallest key larger than
         # num_prompt_tokens, and number of compute operations scales linearly with num_prompt_tokens.
         for key in sorted(runtimes_for_prompt_tokens.keys()):
             if num_prompt_tokens <= key:
-                runtime_for_prompt_tokens = runtimes_for_prompt_tokens[key] * (num_prompt_tokens / key)
+                runtime_for_prompt_tokens = runtimes_for_prompt_tokens[key] * (
+                    num_prompt_tokens / key
+                )
                 break
         # If number of tokens in the prompt exceeds the largest key in the efficiency dict, then
         # estimate the prompt encoding time by linearly scaling up the runtime for the largest
         # key (this is reasonably accurate under certain simplifying assumptions).
         if runtime_for_prompt_tokens is None:
-            runtime_for_prompt_tokens = runtimes_for_prompt_tokens[largest_num_tokens_in_efficiency_dict] * (
-                num_prompt_tokens / largest_num_tokens_in_efficiency_dict
-            )
-        overhead: Optional[float] = inference_runtimes_dict_for_model.get("overhead")
+            runtime_for_prompt_tokens = runtimes_for_prompt_tokens[
+                largest_num_tokens_in_efficiency_dict
+            ] * (num_prompt_tokens / largest_num_tokens_in_efficiency_dict)
+        overhead: Optional[float] = inference_runtimes_dict_for_model.get(
+            "overhead"
+        )
 
         # Idealized runtime is sum of the runtime of encoding the input tokens, the runtime of
         # generating `num_output_tokens` (`runtime_per_output_token` * (`num_output_tokens` - 1))
@@ -92,7 +113,9 @@ def compute_estimated_time_from_prompt_size_and_num_output_tokens(
         # and the overhead if available.
         estimated_runtime = runtime_for_prompt_tokens
         if num_output_tokens > 0:
-            estimated_runtime += runtime_per_output_token * (num_output_tokens - 1)
+            estimated_runtime += runtime_per_output_token * (
+                num_output_tokens - 1
+            )
         # Add overhead if it is available.
         if overhead is not None:
             estimated_runtime += overhead
@@ -180,7 +203,9 @@ def quasi_prefix_exact_match(gold: str, pred: str) -> float:
 
 
 def f1_score(gold: str, pred: str) -> float:
-    ret = f_measure(set(normalize_text(gold).split()), set(normalize_text(pred).split()))
+    ret = f_measure(
+        set(normalize_text(gold).split()), set(normalize_text(pred).split())
+    )
     if ret is None:  # answer is the empty string after normalizing
         return 0.0
 
@@ -250,7 +275,9 @@ def convert_tokens_to_text(tokens: List[Token]) -> List[Dict]:
     return groups
 
 
-def rouge_score(gold: str, pred: str, rouge_type: str, scorer: rouge_scorer.RougeScorer) -> float:
+def rouge_score(
+    gold: str, pred: str, rouge_type: str, scorer: rouge_scorer.RougeScorer
+) -> float:
     scores = scorer.score(gold, pred)
     return scores[rouge_type].fmeasure
 
@@ -261,11 +288,15 @@ def get_rouge_function(rouge_type: str) -> Callable[[str, str], float]:
 
 
 def bleu_1(gold: str, pred: str) -> float:
-    return sentence_bleu([word_tokenize(gold)], word_tokenize(pred), weights=(1, 0, 0, 0))
+    return sentence_bleu(
+        [word_tokenize(gold)], word_tokenize(pred), weights=(1, 0, 0, 0)
+    )
 
 
 def bleu_4(gold: str, pred: str) -> float:
-    return sentence_bleu([word_tokenize(gold)], word_tokenize(pred), weights=(0, 0, 0, 1))
+    return sentence_bleu(
+        [word_tokenize(gold)], word_tokenize(pred), weights=(0, 0, 0, 1)
+    )
 
 
 def extract_set_from_text(
@@ -297,7 +328,9 @@ def extract_gold_pred_sets(gold: str, pred: str) -> Tuple[Set[str], Set[str]]:
 def iou_set_match(gold: str, pred: str) -> float:
     """Compute the intersection over union of the gold and pred sets"""
     gold_set, pred_set = extract_gold_pred_sets(gold, pred)
-    if len(gold_set) == 0:  # If gold is empty, just check if the pred set is also empty
+    if (
+        len(gold_set) == 0
+    ):  # If gold is empty, just check if the pred set is also empty
         return float(gold_set == pred_set)
     return len(gold_set.intersection(pred_set)) / len(gold_set.union(pred_set))
 
@@ -305,7 +338,9 @@ def iou_set_match(gold: str, pred: str) -> float:
 def f1_set_match(gold: str, pred: str) -> float:
     """Compute the F1 score of the gold and pred sets"""
     gold_set, pred_set = extract_gold_pred_sets(gold, pred)
-    if len(gold_set) == 0:  # If gold is empty, just check if the pred set is also empty
+    if (
+        len(gold_set) == 0
+    ):  # If gold is empty, just check if the pred set is also empty
         return float(gold_set == pred_set)
     true_positives = gold_set.intersection(pred_set)
     return 2 * len(true_positives) / (len(gold_set) + len(pred_set))
@@ -348,20 +383,32 @@ def compute_perplexity_metrics(stats: Dict[MetricName, Stat]) -> List[Stat]:
     derived_stats: List[Stat] = []
 
     logprob_stat = get_unique_stat_by_name(stats.values(), "logprob")
-    num_tokens_stat = get_unique_stat_by_name(stats.values(), "num_perplexity_tokens")
+    num_tokens_stat = get_unique_stat_by_name(
+        stats.values(), "num_perplexity_tokens"
+    )
     num_bytes_stat = get_unique_stat_by_name(stats.values(), "num_bytes")
 
     if logprob_stat is None:
         return []
 
     if num_tokens_stat is not None and num_tokens_stat.sum > 0:
-        derived_stats.append(Stat(MetricName("perplexity")).add(math.e ** (-logprob_stat.sum / num_tokens_stat.sum)))
+        derived_stats.append(
+            Stat(MetricName("perplexity")).add(
+                math.e ** (-logprob_stat.sum / num_tokens_stat.sum)
+            )
+        )
 
     if num_bytes_stat is not None and num_bytes_stat.sum > 0:
         derived_stats.append(
-            Stat(MetricName("bits_per_byte")).add(-logprob_stat.sum / num_bytes_stat.sum / math.log(2))
+            Stat(MetricName("bits_per_byte")).add(
+                -logprob_stat.sum / num_bytes_stat.sum / math.log(2)
+            )
         )
-        derived_stats.append(Stat(MetricName("logprob_per_byte")).add(logprob_stat.sum / num_bytes_stat.sum))
+        derived_stats.append(
+            Stat(MetricName("logprob_per_byte")).add(
+                logprob_stat.sum / num_bytes_stat.sum
+            )
+        )
 
     return derived_stats
 
@@ -401,23 +448,32 @@ class BasicMetric(Metric):
         # Profiling code and logs, and code to fit the regression model is available at
         # https://github.com/stanford-crfm/benchmarking_efficiency.
         data_package = resources.files(EFFICIENCY_DATA_PACKAGE)
-        with data_package.joinpath(INFERENCE_IDEALIZED_RUNTIMES_JSON_FILENAME).open("r") as f:
+        with data_package.joinpath(
+            INFERENCE_IDEALIZED_RUNTIMES_JSON_FILENAME
+        ).open("r") as f:
             self.inference_idealized_runtimes_dict = json.load(f)
-        with data_package.joinpath(INFERENCE_DENOISED_RUNTIMES_JSON_FILENAME).open("r") as f:
+        with data_package.joinpath(
+            INFERENCE_DENOISED_RUNTIMES_JSON_FILENAME
+        ).open("r") as f:
             self.inference_denoised_runtimes_dict = json.load(f)
 
         # We use estimated emitted CO2 during training (in tons of CO2) as a proxy metric
         # for training efficiency. We use reported metrics where applicable, otherwise
         # we estimate them from runtime information, type and number of hardware accelerators
         # used, region, etc.
-        with data_package.joinpath(TRAINING_EFFICIENCY_JSON_FILENAME).open("r") as f:
+        with data_package.joinpath(TRAINING_EFFICIENCY_JSON_FILENAME).open(
+            "r"
+        ) as f:
             self.training_efficiency_dict = json.load(f)
 
     def __repr__(self):
         return f"BasicMetric({','.join(self.names)})"
 
     def compute_reference_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
         """
         Setup:
@@ -438,30 +494,65 @@ class BasicMetric(Metric):
             score_func: Callable,
             group: Optional[str] = None,
         ) -> List[Stat]:
-            if name.name == "pass":  # Calculate pass@k for HumanEval from CodeScenario.
-                score_func = cast(Callable[[Tuple[str, Optional[Dict]], str], float], score_func)  # Make mypy happy.
+            if (
+                name.name == "pass"
+            ):  # Calculate pass@k for HumanEval from CodeScenario.
+                score_func = cast(
+                    Callable[[Tuple[str, Optional[Dict]], str], float],
+                    score_func,
+                )  # Make mypy happy.
                 code_golds = cast(List[CodeReference], golds)
                 results = [
-                    score_func((gold.output.text, gold.test_cases), pred) for gold in code_golds for pred in preds
+                    score_func((gold.output.text, gold.test_cases), pred)
+                    for gold in code_golds
+                    for pred in preds
                 ]
-                _len, _sum = len(results), int(sum(results))  # Cast to int to make type match.
+                _len, _sum = len(results), int(
+                    sum(results)
+                )  # Cast to int to make type match.
                 score_1 = pass_at_k_estimator(_len, _sum, 1)
-                score_k = pass_at_k_estimator(_len, _sum, adapter_spec.num_outputs)
+                score_k = pass_at_k_estimator(
+                    _len, _sum, adapter_spec.num_outputs
+                )
             elif name.name == "code_eval_acc":
-                score_func = cast(Callable[[Tuple[str, Optional[Dict]], str], float], score_func)  # Make mypy happy.
+                score_func = cast(
+                    Callable[[Tuple[str, Optional[Dict]], str], float],
+                    score_func,
+                )  # Make mypy happy.
                 code_golds = cast(List[CodeReference], golds)
-                score_1 = max(score_func((gold.output.text, gold.test_cases), preds[0]) for gold in code_golds)
+                score_1 = max(
+                    score_func((gold.output.text, gold.test_cases), preds[0])
+                    for gold in code_golds
+                )
                 score_k = max(
-                    score_func((gold.output.text, gold.test_cases), pred) for gold in code_golds for pred in preds
+                    score_func((gold.output.text, gold.test_cases), pred)
+                    for gold in code_golds
+                    for pred in preds
                 )
             else:
-                score_func = cast(Callable[[str, str], float], score_func)  # Make mypy happy.
-                score_1 = max(score_func(gold.output.text, preds[0]) for gold in golds)
-                score_k = max(score_func(gold.output.text, pred) for gold in golds for pred in preds)
+                score_func = cast(
+                    Callable[[str, str], float], score_func
+                )  # Make mypy happy.
+                score_1 = max(
+                    score_func(gold.output.text, preds[0]) for gold in golds
+                )
+                score_k = max(
+                    score_func(gold.output.text, pred)
+                    for gold in golds
+                    for pred in preds
+                )
 
-            metrics = [Stat(name).add(score_1)]  # score_1 corresponds using one prediction
+            metrics = [
+                Stat(name).add(score_1)
+            ]  # score_1 corresponds using one prediction
             if adapter_spec.num_outputs != 1:
-                metrics.append(Stat(replace(name, name=f"{name.name}@{adapter_spec.num_outputs}")).add(score_k))
+                metrics.append(
+                    Stat(
+                        replace(
+                            name, name=f"{name.name}@{adapter_spec.num_outputs}"
+                        )
+                    ).add(score_k)
+                )
             return metrics
 
         # maps each string metric name to its associated function
@@ -490,19 +581,76 @@ class BasicMetric(Metric):
         stats: List[Stat] = []
 
         # Gold outputs
-        golds: List[Reference] = [reference for reference in request_state.instance.references if reference.is_correct]
+        golds: List[Reference] = [
+            reference
+            for reference in request_state.instance.references
+            if reference.is_correct
+        ]
         assert len(golds) > 0
 
         # Predicted outputs
         assert request_state.result is not None
-        sorted_completions: List[Sequence] = sorted(request_state.result.completions, key=lambda x: -x.logprob)
-        preds: List[str] = [completion.text.strip() for completion in sorted_completions]
+        sorted_completions: List[Sequence] = sorted(
+            request_state.result.completions, key=lambda x: -x.logprob
+        )
+        preds: List[str] = [
+            completion.text.strip() for completion in sorted_completions
+        ]
 
         # Apply mapping if exists (e.g., for multiple-choice questions A -> Boston, B -> New York)
         # Note: If 'A' and 'B' were the only possible choices, smaller language models like GPT-2 would
         # sometimes predict a random letter like 'M'.
         if request_state.output_mapping is not None:
-            preds = [request_state.output_mapping.get(pred) for pred in preds]  # type: ignore
+            new_preds = []
+            for pred in preds:
+                if pred in request_state.output_mapping:
+                    new_preds.append(request_state.output_mapping[pred])
+                elif pred.lower() in request_state.output_mapping:
+                    new_preds.append(request_state.output_mapping[pred.lower()])
+                elif pred.strip() in request_state.output_mapping:
+                    new_preds.append(request_state.output_mapping[pred.strip()])
+                elif pred.strip().lower() in request_state.output_mapping:
+                    new_preds.append(request_state.output_mapping[pred.strip()])
+                elif normalize_text(pred) in request_state.output_mapping:
+                    new_preds.append(
+                        request_state.output_mapping[normalize_text(pred)]
+                    )
+                elif (
+                    normalize_text(pred.lower()) in request_state.output_mapping
+                ):
+                    new_preds.append(
+                        request_state.output_mapping[normalize_text(pred)]
+                    )
+                else:
+                    found_n_times = 0
+                    found_key = None
+                    for k in request_state.output_mapping:
+                        if pred.startswith(k):
+                            found_n_times += 1
+                            found_key = k
+                        elif pred.lower().startswith(k):
+                            found_n_times += 1
+                            found_key = k
+                        elif pred.strip().startswith(k):
+                            found_n_times += 1
+                            found_key = k
+                        elif pred.strip().lower().startswith(k):
+                            found_n_times += 1
+                            found_key = k
+                        elif normalize_text(pred).startswith(k):
+                            found_n_times += 1
+                            found_key = k
+                        elif normalize_text(pred.lower()).startswith(k):
+                            found_n_times += 1
+                            found_key = k
+
+                    if found_key is None or found_n_times > 1:
+                        new_preds.append(None)
+                    else:
+                        new_preds.append(
+                            request_state.output_mapping[found_key]
+                        )
+            preds = new_preds
 
         # Compute max_prob, the probability that the model assigns to its generated text.
         # Use the log prob of sorted_completions[0], which is the completion with the highest
@@ -518,14 +666,23 @@ class BasicMetric(Metric):
         # Add other metrics
         for metric_name in self.names:
             if metric_name in metric_fn_mapping:
-                stats.extend(compute_metrics_helper(MetricName(metric_name), metric_fn_mapping[metric_name]))
+                stats.extend(
+                    compute_metrics_helper(
+                        MetricName(metric_name), metric_fn_mapping[metric_name]
+                    )
+                )
             else:
-                raise NameError(f"{metric_name} is not in the list of metric functions.")
+                raise NameError(
+                    f"{metric_name} is not in the list of metric functions."
+                )
 
         return stats
 
     def compute_efficiency_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
         """Compute efficiency metrics for both inference and training.
         For inference, we record both the actual runtime and an estimated idealized runtime
@@ -545,7 +702,10 @@ class BasicMetric(Metric):
             batch_size = 1
         # For models that perform offline batch inference, effective runtime is batch_request_time, but also
         # record batch_size to provide nuance.
-        if request_state.result.batch_request_time is not None and request_state.result.batch_size is not None:
+        if (
+            request_state.result.batch_request_time is not None
+            and request_state.result.batch_size is not None
+        ):
             runtime = request_state.result.batch_request_time
             batch_size = request_state.result.batch_size
 
@@ -553,12 +713,19 @@ class BasicMetric(Metric):
         # Fetch the right `Tokenizer` depending on the model defined in `AdapterSpec`
         # and calculate the number of tokens in the prompt.
         tokenizer_service: TokenizerService = metric_service
-        window_service: WindowService = WindowServiceFactory.get_window_service(adapter_spec.model, tokenizer_service)
+        window_service: WindowService = WindowServiceFactory.get_window_service(
+            adapter_spec.model, tokenizer_service
+        )
         prompt: str = request_state.request.prompt
         num_prompt_tokens: int = window_service.get_num_tokens(prompt)
 
         # Total number of tokens in the completion.
-        num_completion_tokens: int = sum([len(completion.tokens) for completion in request_state.result.completions])
+        num_completion_tokens: int = sum(
+            [
+                len(completion.tokens)
+                for completion in request_state.result.completions
+            ]
+        )
         # Don't include prompt in number of generated tokens (e.g., for language modeling).
         # Assume that tokens for different completions are generated sequentially (instead of batched) when
         # computing num_output_tokens (for the purpose of runtime estimation).
@@ -569,17 +736,28 @@ class BasicMetric(Metric):
                 num_output_tokens -= num_prompt_tokens
             else:
                 hlog(
-                    f"WARNING: num_prompt_tokens ({num_prompt_tokens}) > num_output_tokens ({num_output_tokens}) "
-                    f"for prompt: {prompt}"
+                    f"WARNING: num_prompt_tokens ({num_prompt_tokens}) >"
+                    f" num_output_tokens ({num_output_tokens}) for prompt:"
+                    f" {prompt}"
                 )
                 num_output_tokens = 0
 
-        idealized_runtime: Optional[float] = compute_estimated_time_from_prompt_size_and_num_output_tokens(
-            request_state, self.inference_idealized_runtimes_dict, num_prompt_tokens, num_output_tokens
+        idealized_runtime: Optional[
+            float
+        ] = compute_estimated_time_from_prompt_size_and_num_output_tokens(
+            request_state,
+            self.inference_idealized_runtimes_dict,
+            num_prompt_tokens,
+            num_output_tokens,
         )
 
-        denoised_runtime: Optional[float] = compute_estimated_time_from_prompt_size_and_num_output_tokens(
-            request_state, self.inference_denoised_runtimes_dict, num_prompt_tokens, num_output_tokens
+        denoised_runtime: Optional[
+            float
+        ] = compute_estimated_time_from_prompt_size_and_num_output_tokens(
+            request_state,
+            self.inference_denoised_runtimes_dict,
+            num_prompt_tokens,
+            num_output_tokens,
         )
         # Denoised runtime for offline models is just runtime.
         # We divide by batch_size to get approximate per-input runtime.
@@ -588,20 +766,32 @@ class BasicMetric(Metric):
 
         # Compute efficiency metrics for training.
         training_co2_cost: Optional[float]
-        if request_state.request.model in self.training_efficiency_dict["carbon"]:
-            training_co2_cost = self.training_efficiency_dict["carbon"][request_state.request.model]["value"]
+        if (
+            request_state.request.model
+            in self.training_efficiency_dict["carbon"]
+        ):
+            training_co2_cost = self.training_efficiency_dict["carbon"][
+                request_state.request.model
+            ]["value"]
         else:
             training_co2_cost = None
 
         training_energy_cost: Optional[float]
-        if request_state.request.model in self.training_efficiency_dict["energy"]:
-            training_energy_cost = self.training_efficiency_dict["energy"][request_state.request.model]["value"]
+        if (
+            request_state.request.model
+            in self.training_efficiency_dict["energy"]
+        ):
+            training_energy_cost = self.training_efficiency_dict["energy"][
+                request_state.request.model
+            ]["value"]
         else:
             training_energy_cost = None
 
         stats = [
             Stat(MetricName("num_prompt_tokens")).add(num_prompt_tokens),
-            Stat(MetricName("num_completion_tokens")).add(num_completion_tokens),
+            Stat(MetricName("num_completion_tokens")).add(
+                num_completion_tokens
+            ),
             Stat(MetricName("num_output_tokens")).add(num_output_tokens),
             Stat(MetricName("training_co2_cost")).add(training_co2_cost),
             Stat(MetricName("training_energy_cost")).add(training_energy_cost),
@@ -611,15 +801,27 @@ class BasicMetric(Metric):
         if batch_size is not None:
             stats.append(Stat(MetricName("batch_size")).add(batch_size))
         if denoised_runtime is not None:
-            stats.append(Stat(MetricName("inference_denoised_runtime")).add(denoised_runtime))
+            stats.append(
+                Stat(MetricName("inference_denoised_runtime")).add(
+                    denoised_runtime
+                )
+            )
         if idealized_runtime is not None:
-            stats.append(Stat(MetricName("inference_idealized_runtime")).add(idealized_runtime))
+            stats.append(
+                Stat(MetricName("inference_idealized_runtime")).add(
+                    idealized_runtime
+                )
+            )
         return stats
 
     def compute_finish_reason_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
-        """Record how often generation finished due to reaching token limit, stop token(s), or end of text"""
+        """Record how often generation finished due to reaching token limit, stop token(s), or end of text
+        """
         assert request_state.result is not None
         sequence = request_state.result.completions[0]
         valid_reasons = [
@@ -628,50 +830,89 @@ class BasicMetric(Metric):
             "endoftext",
             "unknown",
         ]
-        if sequence.finish_reason is None or sequence.finish_reason["reason"] not in valid_reasons:
+        if (
+            sequence.finish_reason is None
+            or sequence.finish_reason["reason"] not in valid_reasons
+        ):
             reason = "unknown"
         else:
             reason = sequence.finish_reason["reason"]
         return [
-            Stat(MetricName(f"finish_reason_{valid_reason}")).add(int(reason == valid_reason))
+            Stat(MetricName(f"finish_reason_{valid_reason}")).add(
+                int(reason == valid_reason)
+            )
             for valid_reason in valid_reasons
         ]
 
     def compute_truncation_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
         """
         Record the number of training instances used in the prompt and whether
         even the prompt needed to be truncated (once we hit zero training instances).
         """
         return [
-            Stat(MetricName("num_train_instances")).add(request_state.num_train_instances),
-            Stat(MetricName("prompt_truncated")).add(request_state.prompt_truncated),
+            Stat(MetricName("num_train_instances")).add(
+                request_state.num_train_instances
+            ),
+            Stat(MetricName("prompt_truncated")).add(
+                request_state.prompt_truncated
+            ),
         ]
 
     def compute_all_general_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
         """
         Compute metrics that are common to both `evaluate_generation` and `evaluate_references`.
         """
         stats: List[Stat] = []
 
-        stats.append(Stat(MetricName("num_references")).add(len(request_state.instance.references)))
+        stats.append(
+            Stat(MetricName("num_references")).add(
+                len(request_state.instance.references)
+            )
+        )
 
         # Copy from adapter spec
-        stats.append(Stat(MetricName("num_train_trials")).add(adapter_spec.num_train_trials))
+        stats.append(
+            Stat(MetricName("num_train_trials")).add(
+                adapter_spec.num_train_trials
+            )
+        )
 
-        stats.extend(self.compute_efficiency_metrics(adapter_spec, request_state, metric_service))
-        stats.extend(self.compute_finish_reason_metrics(adapter_spec, request_state, metric_service))
-        stats.extend(self.compute_truncation_metrics(adapter_spec, request_state, metric_service))
+        stats.extend(
+            self.compute_efficiency_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
+        stats.extend(
+            self.compute_finish_reason_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
+        stats.extend(
+            self.compute_truncation_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
 
         return stats
 
     def compute_language_modeling_metrics(
-        self, adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+        self,
+        adapter_spec: AdapterSpec,
+        request_state: RequestState,
+        metric_service: MetricService,
     ) -> List[Stat]:
-        """Compute the logprob and normalization factors for the first completion"""
+        """Compute the logprob and normalization factors for the first completion
+        """
         assert request_state.result is not None
         sequence = request_state.result.completions[0]
 
@@ -683,7 +924,10 @@ class BasicMetric(Metric):
         # TODO(#1522): Update this comment once solved.
         # Since this empty token is introduced by our chunking approach, we need to remove it.
         tokens: List[Token]
-        if request_state.num_conditioning_tokens > 0 and sequence.tokens[0].text == "":
+        if (
+            request_state.num_conditioning_tokens > 0
+            and sequence.tokens[0].text == ""
+        ):
             tokens = sequence.tokens[1:]
         else:
             tokens = sequence.tokens
@@ -696,7 +940,9 @@ class BasicMetric(Metric):
 
         return [
             Stat(MetricName("logprob")).add(logprob),
-            Stat(MetricName("num_perplexity_tokens")).add(num_perplexity_tokens),
+            Stat(MetricName("num_perplexity_tokens")).add(
+                num_perplexity_tokens
+            ),
             Stat(MetricName("num_bytes")).add(num_bytes),
         ]
 
@@ -709,12 +955,24 @@ class BasicMetric(Metric):
     ) -> List[Stat]:
         """Compute all metrics."""
         stats: List[Stat] = []
-        stats.extend(self.compute_all_general_metrics(adapter_spec, request_state, metric_service))
+        stats.extend(
+            self.compute_all_general_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
 
         if len(request_state.instance.references) > 0:
-            stats.extend(self.compute_reference_metrics(adapter_spec, request_state, metric_service))
+            stats.extend(
+                self.compute_reference_metrics(
+                    adapter_spec, request_state, metric_service
+                )
+            )
 
-        stats.extend(self.compute_language_modeling_metrics(adapter_spec, request_state, metric_service))
+        stats.extend(
+            self.compute_language_modeling_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
 
         return stats
 
@@ -740,43 +998,69 @@ class BasicMetric(Metric):
             logprob: float  # sum of logprobs for all tokens in the reference
             num_tokens: int  # number of tokens in the reference
 
-        def compute_logprob_and_length(request_state: RequestState, window_service: WindowService) -> ReferenceStat:
-            """Compute the logprob and length for the only completion from the request_state."""
+        def compute_logprob_and_length(
+            request_state: RequestState, window_service: WindowService
+        ) -> ReferenceStat:
+            """Compute the logprob and length for the only completion from the request_state.
+            """
             assert request_state.reference_index is not None
             assert request_state.result is not None
             assert len(request_state.result.completions) == 1
 
             reference_index = request_state.reference_index
             sequence: Sequence = request_state.result.completions[0]
-            reference: str = request_state.instance.references[reference_index].output.text
+            reference: str = request_state.instance.references[
+                reference_index
+            ].output.text
 
             # Find the span of the completion that matches the reference.
             # Prepend a space because there should always be a space before reference in the prompt.
-            reference_tokens: List[str] = window_service.tokenize(f" {reference}")
+            reference_tokens: List[str] = window_service.tokenize(
+                f" {reference}"
+            )
             num_tokens: int = len(reference_tokens)
             answer_tokens: List[Token] = sequence.tokens[-num_tokens:]
             logprob: float = sum(token.logprob for token in answer_tokens)
-            assert not math.isnan(logprob), f"Log probs have NaN for RequestState: {request_state}"
+            assert not math.isnan(
+                logprob
+            ), f"Log probs have NaN for RequestState: {request_state}"
             return ReferenceStat(logprob, num_tokens)
 
         references = reference_request_states[0].instance.references
         assert all(
-            [references == request_state.instance.references for request_state in reference_request_states]
+            [
+                references == request_state.instance.references
+                for request_state in reference_request_states
+            ]
         )  # all request_state in reference_request_states should have same references
         answers = [
-            reference_index for reference_index, reference in enumerate(references) if CORRECT_TAG in reference.tags
+            reference_index
+            for reference_index, reference in enumerate(references)
+            if CORRECT_TAG in reference.tags
         ]
         num_choices = len(references)
 
         tokenizer_service: TokenizerService = metric_service
-        window_service: WindowService = WindowServiceFactory.get_window_service(adapter_spec.model, tokenizer_service)
+        window_service: WindowService = WindowServiceFactory.get_window_service(
+            adapter_spec.model, tokenizer_service
+        )
         reference_stats: Dict[ReferenceKey, ReferenceStat] = {}
         for request_state in reference_request_states:
-            assert request_state.reference_index is not None and request_state.request_mode is not None
-            reference_key = ReferenceKey(request_state.reference_index, request_state.request_mode)
-            reference_stats[reference_key] = compute_logprob_and_length(request_state, window_service)
+            assert (
+                request_state.reference_index is not None
+                and request_state.request_mode is not None
+            )
+            reference_key = ReferenceKey(
+                request_state.reference_index, request_state.request_mode
+            )
+            reference_stats[reference_key] = compute_logprob_and_length(
+                request_state, window_service
+            )
 
-        if adapter_spec.method in [ADAPT_MULTIPLE_CHOICE_SEPARATE_ORIGINAL, ADAPT_RANKING_BINARY]:
+        if adapter_spec.method in [
+            ADAPT_MULTIPLE_CHOICE_SEPARATE_ORIGINAL,
+            ADAPT_RANKING_BINARY,
+        ]:
             reference_scores = [
                 reference_stats[ReferenceKey(i, "original")].logprob
                 / reference_stats[ReferenceKey(i, "original")].num_tokens
@@ -792,16 +1076,24 @@ class BasicMetric(Metric):
             raise ValueError(f"Unknown adapter method: {adapter_spec.method}")
 
         stats: List[Stat] = []
-        stats.extend(self.compute_all_general_metrics(adapter_spec, request_state, metric_service))
+        stats.extend(
+            self.compute_all_general_metrics(
+                adapter_spec, request_state, metric_service
+            )
+        )
 
         max_prob = np.max(scipy.special.softmax(reference_scores))
 
         # Multiple references may attain the same maximal score; in such cases,
         # we select the first reference within the argmax list as the `predicted_index`.
         # Meanwhile, the "exact match" is calculated as the portion of correct references in the list.
-        argmax_references = np.flatnonzero(reference_scores >= np.max(reference_scores))
+        argmax_references = np.flatnonzero(
+            reference_scores >= np.max(reference_scores)
+        )
         predicted_index = argmax_references[0].item()
-        exact_match_score = len(set(answers).intersection(argmax_references)) / len(argmax_references)
+        exact_match_score = len(
+            set(answers).intersection(argmax_references)
+        ) / len(argmax_references)
 
         stats.extend(
             [
@@ -813,23 +1105,32 @@ class BasicMetric(Metric):
         return stats
 
     def derive_stats(self, stats_dict: Dict[MetricName, Stat]) -> List[Stat]:
-        """Derive perplexity metrics if applicable. We don't worry about splits and perturbations here."""
+        """Derive perplexity metrics if applicable. We don't worry about splits and perturbations here.
+        """
         derived_stats: List[Stat] = []
         derived_stats.extend(compute_perplexity_metrics(stats_dict))
         return derived_stats
 
-    def derive_per_instance_stats(self, per_instance_stats: Dict[Instance, List[Stat]]) -> List[Stat]:
-        """Derive calibration metrics if applicable. We don't worry about splits and perturbations here."""
+    def derive_per_instance_stats(
+        self, per_instance_stats: Dict[Instance, List[Stat]]
+    ) -> List[Stat]:
+        """Derive calibration metrics if applicable. We don't worry about splits and perturbations here.
+        """
         derived_stats: List[Stat] = []
         derived_stats.extend(compute_calibration_metrics(per_instance_stats))
-        derived_stats.append(Stat(MetricName("num_instances")).add(len(per_instance_stats)))
+        derived_stats.append(
+            Stat(MetricName("num_instances")).add(len(per_instance_stats))
+        )
         return derived_stats
 
 
-def _has_non_zero_valued_logprobs(per_instance_stats: Dict[Instance, List[Stat]]) -> bool:
+def _has_non_zero_valued_logprobs(
+    per_instance_stats: Dict[Instance, List[Stat]]
+) -> bool:
     """Return whether the per-instance stats contain non-zero-valued logprobs.
 
-    Some models have partial functionality and produce only zero-valued logprobs."""
+    Some models have partial functionality and produce only zero-valued logprobs.
+    """
     for instance_stats in per_instance_stats.values():
         for stat in instance_stats:
             if stat.name == "logprob" and stat.sum < 0:
@@ -837,7 +1138,9 @@ def _has_non_zero_valued_logprobs(per_instance_stats: Dict[Instance, List[Stat]]
     return False
 
 
-def compute_calibration_metrics(per_instance_stats: Dict[Instance, List[Stat]]) -> List[Stat]:
+def compute_calibration_metrics(
+    per_instance_stats: Dict[Instance, List[Stat]]
+) -> List[Stat]:
     max_probs = []
     correct = []
 
@@ -865,9 +1168,15 @@ def compute_calibration_metrics(per_instance_stats: Dict[Instance, List[Stat]]) 
         stats.append(Stat(MetricName("ece_10_bin")).add(ece_10_bin))
         ece_1_bin = cal.get_ece(max_probs, correct, num_bins=1)
         stats.append(Stat(MetricName("ece_1_bin")).add(ece_1_bin))
-        coverage_acc_area, acc_top_10_percentile = cal.get_selective_stats(max_probs, correct)
-        stats.append(Stat(MetricName("selective_cov_acc_area")).add(coverage_acc_area))
-        stats.append(Stat(MetricName("selective_acc@10")).add(acc_top_10_percentile))
+        coverage_acc_area, acc_top_10_percentile = cal.get_selective_stats(
+            max_probs, correct
+        )
+        stats.append(
+            Stat(MetricName("selective_cov_acc_area")).add(coverage_acc_area)
+        )
+        stats.append(
+            Stat(MetricName("selective_acc@10")).add(acc_top_10_percentile)
+        )
         # Compute ECE after recalibration.
         if np.sum(correct) == 0 or np.sum(correct) == len(correct):
             # If all examples are correct or incorrect, the platt scaling
@@ -876,13 +1185,23 @@ def compute_calibration_metrics(per_instance_stats: Dict[Instance, List[Stat]]) 
             stats.append(Stat(MetricName("platt_ece_10_bin")).add(0.0))
             stats.append(Stat(MetricName("platt_ece_1_bin")).add(0.0))
         else:
-            platt_scaler, clf = cal.get_platt_scaler(np.array(max_probs), np.array(correct), get_clf=True)
+            platt_scaler, clf = cal.get_platt_scaler(
+                np.array(max_probs), np.array(correct), get_clf=True
+            )
             stats.append(Stat(MetricName("platt_coef")).add(clf.coef_[0][0]))
-            stats.append(Stat(MetricName("platt_intercept")).add(clf.intercept_[0]))
+            stats.append(
+                Stat(MetricName("platt_intercept")).add(clf.intercept_[0])
+            )
             cal_max_probs = platt_scaler(np.array(max_probs))
-            platt_ece_10_bin = cal.get_ece_em(cal_max_probs, correct, num_bins=10)
-            stats.append(Stat(MetricName("platt_ece_10_bin")).add(platt_ece_10_bin))
+            platt_ece_10_bin = cal.get_ece_em(
+                cal_max_probs, correct, num_bins=10
+            )
+            stats.append(
+                Stat(MetricName("platt_ece_10_bin")).add(platt_ece_10_bin)
+            )
             platt_ece_1_bin = cal.get_ece(cal_max_probs, correct, num_bins=1)
-            stats.append(Stat(MetricName("platt_ece_1_bin")).add(platt_ece_1_bin))
+            stats.append(
+                Stat(MetricName("platt_ece_1_bin")).add(platt_ece_1_bin)
+            )
 
     return stats
