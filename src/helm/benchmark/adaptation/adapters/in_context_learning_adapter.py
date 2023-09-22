@@ -8,7 +8,12 @@ from typing import List, Dict, Optional
 from helm.benchmark.adaptation.prompt import Prompt
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.adaptation.scenario_state import ScenarioState
-from helm.benchmark.scenarios.scenario import Instance, TRAIN_SPLIT, EVAL_SPLITS, Reference
+from helm.benchmark.scenarios.scenario import (
+    Instance,
+    TRAIN_SPLIT,
+    EVAL_SPLITS,
+    Reference,
+)
 from helm.common.general import parallel_map
 from helm.common.hierarchical_logger import hlog, htrack, htrack_block
 from .adapter import Adapter
@@ -21,14 +26,18 @@ class InContextLearningAdapter(Adapter, ABC):
     """
 
     @htrack(None)
-    def adapt(self, instances: List[Instance], parallelism: int) -> ScenarioState:
+    def adapt(
+        self, instances: List[Instance], parallelism: int
+    ) -> ScenarioState:
         """
         Takes a list of `Instance`s and builds a list of corresponding `RequestState`s.
         The reason we don't do this per eval instance is that we create a common set of
         training instances which is shared across all eval instances.
         """
         # Pick out training instances
-        all_train_instances: List[Instance] = [instance for instance in instances if instance.split == TRAIN_SPLIT]
+        all_train_instances: List[Instance] = [
+            instance for instance in instances if instance.split == TRAIN_SPLIT
+        ]
         if len(all_train_instances) < self.adapter_spec.max_train_instances:
             hlog(
                 f"WARNING: only {len(all_train_instances)} training instances, "
@@ -36,12 +45,14 @@ class InContextLearningAdapter(Adapter, ABC):
             )
 
         # Pick out evaluation instances. This includes both valid and test splits.
-        eval_instances: List[Instance] = [instance for instance in instances if instance.split in EVAL_SPLITS]
+        eval_instances: List[Instance] = [
+            instance for instance in instances if instance.split in EVAL_SPLITS
+        ]
 
         hlog(
-            f"{len(instances)} instances, "
-            f"choosing {self.adapter_spec.max_train_instances}/{len(all_train_instances)} train instances, "
-            f"{len(eval_instances)} eval instances"
+            f"{len(instances)} instances, choosing"
+            f" {self.adapter_spec.max_train_instances}/{len(all_train_instances)} train"
+            f" instances, {len(eval_instances)} eval instances"
         )
 
         # Accumulate all the request states due to adaptation
@@ -49,9 +60,16 @@ class InContextLearningAdapter(Adapter, ABC):
         prompt: Prompt
 
         for train_trial_index in range(self.adapter_spec.num_train_trials):
-            with htrack_block(f"Adapting with train_trial_index={train_trial_index}"):
+            with htrack_block(
+                f"Adapting with train_trial_index={train_trial_index}"
+            ):
                 all_request_states.extend(
-                    self._adapt_trial_index(all_train_instances, train_trial_index, eval_instances, parallelism)
+                    self._adapt_trial_index(
+                        all_train_instances,
+                        train_trial_index,
+                        eval_instances,
+                        parallelism,
+                    )
                 )
 
         hlog(f"{len(all_request_states)} requests")
@@ -66,9 +84,14 @@ class InContextLearningAdapter(Adapter, ABC):
     ) -> List[RequestState]:
         self.train_trial_index: int = train_trial_index
         self.train_instances: List[Instance] = self.sample_examples(
-            all_train_instances, seed=train_trial_index, sample_train=self.adapter_spec.sample_train
+            all_train_instances,
+            seed=train_trial_index,
+            sample_train=self.adapter_spec.sample_train,
         )
-        hlog(f"Sampled {len(self.train_instances)} examples for trial #{self.train_trial_index}.")
+        hlog(
+            f"Sampled {len(self.train_instances)} examples for trial"
+            f" #{self.train_trial_index}."
+        )
 
         # Generate request_states
         results: List[List[RequestState]] = parallel_map(
@@ -96,7 +119,10 @@ class InContextLearningAdapter(Adapter, ABC):
         return [request_state for result in results for request_state in result]
 
     def sample_examples(
-        self, all_train_instances: List[Instance], seed: int, sample_train: bool = True
+        self,
+        all_train_instances: List[Instance],
+        seed: int,
+        sample_train: bool = True,
     ) -> List[Instance]:
         """
         Sample a random set of train instances to use as examples by following the steps below:
@@ -123,19 +149,27 @@ class InContextLearningAdapter(Adapter, ABC):
         """
         # Fix the random seed for reproducibility
         random.seed(seed)
-        num_instances_to_sample: int = min(len(all_train_instances), self.adapter_spec.max_train_instances)
+        num_instances_to_sample: int = min(
+            len(all_train_instances), self.adapter_spec.max_train_instances
+        )
 
         examples: List[Instance] = []
         if not sample_train:
             # Select sequentially from the train set
-            examples = all_train_instances[num_instances_to_sample * seed : num_instances_to_sample * (seed + 1)]
+            examples = all_train_instances[
+                num_instances_to_sample
+                * seed : num_instances_to_sample
+                * (seed + 1)
+            ]
             return examples
 
         unlabeled_instances: List[Instance] = []
         label_to_instances: Dict[str, List[Instance]] = defaultdict(list)
         for instance in all_train_instances:
             if instance.first_correct_reference:
-                label_to_instances[instance.first_correct_reference.output.text].append(instance)
+                label_to_instances[
+                    instance.first_correct_reference.output.text
+                ].append(instance)
             else:
                 unlabeled_instances.append(instance)
 
@@ -195,12 +229,17 @@ class InContextLearningAdapter(Adapter, ABC):
 
         # Text for in-context training instances
         train_instance_blocks: List[str] = [
-            self.construct_example_prompt(inst, include_output=True, reference_index=None) for inst in train_instances
+            self.construct_example_prompt(
+                inst, include_output=True, reference_index=None
+            )
+            for inst in train_instances
         ]
 
         # Example text
         eval_instance_block: str = self.construct_example_prompt(
-            eval_instance, include_output=include_output, reference_index=reference_index
+            eval_instance,
+            include_output=include_output,
+            reference_index=reference_index,
         )
 
         # Prompt
@@ -217,12 +256,21 @@ class InContextLearningAdapter(Adapter, ABC):
         prompt = self._make_prompt_fit(prompt)
         return prompt
 
-    def construct_example_prompt(self, instance: Instance, include_output: bool, reference_index: Optional[int]) -> str:
+    def construct_example_prompt(
+        self,
+        instance: Instance,
+        include_output: bool,
+        reference_index: Optional[int],
+    ) -> str:
         """
         Returns a single example of the prompt. `include_output` controls whether the gold output is included.
         """
         # Input
-        result: str = self.adapter_spec.input_prefix + (instance.input.text or "") + self.adapter_spec.input_suffix
+        result: str = (
+            self.adapter_spec.input_prefix
+            + (instance.input.text or "")
+            + self.adapter_spec.input_suffix
+        )
 
         # References (optionally) and output
         output: str
@@ -234,22 +282,40 @@ class InContextLearningAdapter(Adapter, ABC):
             output = reference.output.text
             # Put only the correct reference as the output
         elif self.adapter_spec.multi_label:
-            correct_references: List[Reference] = instance.all_correct_references
+            correct_references: List[Reference] = (
+                instance.all_correct_references
+            )
             if not correct_references:
                 output = no_correct_references
             else:
-                output = delimiter.join([correct_reference.output.text for correct_reference in correct_references])
+                output = delimiter.join(
+                    [
+                        correct_reference.output.text
+                        for correct_reference in correct_references
+                    ]
+                )
         else:
-            first_correct_reference: Optional[Reference] = instance.first_correct_reference
+            first_correct_reference: Optional[Reference] = (
+                instance.first_correct_reference
+            )
             if not first_correct_reference:
                 output = no_correct_references
             else:
                 output = first_correct_reference.output.text
 
         if include_output:
-            result += self.adapter_spec.output_prefix + output + self.adapter_spec.output_suffix
+            result += (
+                self.adapter_spec.output_prefix
+                + output
+                + self.adapter_spec.output_suffix
+            )
         else:
             result += self.adapter_spec.output_prefix.rstrip()
+
+        if "{instance.input.text}" in result:
+            result = result.replace(
+                "{instance.input.text}", str(instance.input.text).strip()
+            )
 
         return result
 
@@ -272,24 +338,32 @@ class InContextLearningAdapter(Adapter, ABC):
                 text=prompt.text,
                 expected_completion_token_length=self.adapter_spec.max_tokens,
             ):
-                removed_train_instances_count: int = orig_train_instances_count - prompt.num_train_instances
+                removed_train_instances_count: int = (
+                    orig_train_instances_count - prompt.num_train_instances
+                )
                 if removed_train_instances_count > 0:
                     hlog(
-                        f"The original constructed prompt exceeded the max context length. "
-                        f"Removed {removed_train_instances_count} in-context examples to fit "
-                        f"it within the context window."
+                        "The original constructed prompt exceeded the max"
+                        " context length. Removed"
+                        f" {removed_train_instances_count} in-context examples"
+                        " to fit it within the context window."
                     )
                 return prompt
 
             # Remove the last training example
             prompt = replace(
-                prompt, train_instance_blocks=prompt.train_instance_blocks[: len(prompt.train_instance_blocks) - 1]
+                prompt,
+                train_instance_blocks=prompt.train_instance_blocks[
+                    : len(prompt.train_instance_blocks) - 1
+                ],
             )
 
         # If removing the in-context example is still not enough, we simply truncate the prompt.
         # Following the default truncation strategy used by HuggingFace, we truncate the text from the right.
         text = prompt.text
-        truncated_text = self.window_service.truncate_from_right(text, self.adapter_spec.max_tokens)
+        truncated_text = self.window_service.truncate_from_right(
+            text, self.adapter_spec.max_tokens
+        )
         if len(truncated_text) < len(text):
             prompt = replace(prompt, truncated_text=truncated_text)
         return prompt
