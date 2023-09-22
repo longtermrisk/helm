@@ -22,18 +22,30 @@ ANTHROPIC_MODEL_TAG: str = "anthropic"
 
 # For OpenAI models with wider context windows
 # TODO(#1455): Simplify context window tags.
-WIDER_CONTEXT_WINDOW_TAG: str = "openai_wider_context_window"  # huggingface/gpt2 tokenizer, 4000 tokens
-GPT_TURBO_CONTEXT_WINDOW_TAG: str = "gpt_turbo_context_window"  # cl100k_base tokenizer, 4000 tokens
-GPT_TURBO_16K_CONTEXT_WINDOW_TAG: str = "gpt_turbo_16k_context_window"  # cl100k_base tokenizer, 8000 tokens
-GPT4_CONTEXT_WINDOW_TAG: str = "gpt4_context_window"  # cl100k_base tokenizer, 8192 tokens
-GPT4_32K_CONTEXT_WINDOW_TAG: str = "gpt4_32k_context_window"  # cl100k_base tokenizer, 32768 tokens
+WIDER_CONTEXT_WINDOW_TAG: str = (  # huggingface/gpt2 tokenizer, 4000 tokens
+    "openai_wider_context_window"
+)
+GPT_TURBO_CONTEXT_WINDOW_TAG: str = (  # cl100k_base tokenizer, 4000 tokens
+    "gpt_turbo_context_window"
+)
+GPT_TURBO_16K_CONTEXT_WINDOW_TAG: str = (  # cl100k_base tokenizer, 8000 tokens
+    "gpt_turbo_16k_context_window"
+)
+GPT4_CONTEXT_WINDOW_TAG: str = (  # cl100k_base tokenizer, 8192 tokens
+    "gpt4_context_window"
+)
+GPT4_32K_CONTEXT_WINDOW_TAG: str = (  # cl100k_base tokenizer, 32768 tokens
+    "gpt4_32k_context_window"
+)
 
 # For AI21 Jurassic-2 models with wider context windows
 AI21_WIDER_CONTEXT_WINDOW_TAG: str = "ai21_wider_context_window"
 
 # For AI21 Jurassic-2 Jumbo
 # AI21 has recommended using a sequence length of 6000 tokens to avoid OOMs.
-AI21_JURASSIC_2_JUMBO_CONTEXT_WINDOW_TAG: str = "ai21_jurassic_2_jumbo_context_window"  # 6000
+AI21_JURASSIC_2_JUMBO_CONTEXT_WINDOW_TAG: str = (  # 6000
+    "ai21_jurassic_2_jumbo_context_window"
+)
 
 # To fetch models that use these tokenizers
 GPT2_TOKENIZER_TAG: str = "gpt2_tokenizer"
@@ -116,13 +128,21 @@ ALL_MODELS = [
     Model(
         group="neurips",
         name="neurips/local",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     # AI21: https://studio.ai21.com/pricing
     Model(
         group="jurassic",
         name="ai21/j1-jumbo",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     # From AI21: "the new model is a mid-point in terms of size, cost and performance between Jumbo and Large.
     # We also implemented a few tweaks to its training process. Internal benchmarks suggest it can really
@@ -130,17 +150,29 @@ ALL_MODELS = [
     Model(
         group="jurassic",
         name="ai21/j1-grande",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="jurassic",
         name="ai21/j1-grande-v2-beta",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="jurassic",
         name="ai21/j1-large",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     # AI21 Jurassic-2 Models: https://www.ai21.com/blog/introducing-j2
     Model(
@@ -156,25 +188,43 @@ ALL_MODELS = [
     Model(
         group="jurassic",
         name="ai21/j2-grande",
-        tags=[TEXT_MODEL_TAG, AI21_WIDER_CONTEXT_WINDOW_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            AI21_WIDER_CONTEXT_WINDOW_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="jurassic",
         name="ai21/j2-large",
-        tags=[TEXT_MODEL_TAG, AI21_WIDER_CONTEXT_WINDOW_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, AI21_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            AI21_WIDER_CONTEXT_WINDOW_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            AI21_TOKENIZER_TAG,
+        ],
     ),
     # Aleph Alpha's Luminous models: https://docs.aleph-alpha.com/docs/introduction/luminous
     Model(
         group="luminous",
         name="AlephAlpha/luminous-base",
         # Does not support echo
-        tags=[TEXT_MODEL_TAG, IMAGE_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            IMAGE_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+        ],
     ),
     Model(
         group="luminous",
         name="AlephAlpha/luminous-extended",
         # Does not support echo
-        tags=[TEXT_MODEL_TAG, IMAGE_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            IMAGE_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+        ],
     ),
     Model(
         group="luminous",
@@ -193,11 +243,28 @@ ALL_MODELS = [
     Model(
         group="anthropic",
         name="anthropic/stanford-online-all-v4-s3",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG, ABLATION_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+            ABLATION_MODEL_TAG,
+        ],
     ),
     Model(
         group="anthropic",
         name="anthropic/claude-v1.3",
+        tags=[
+            ANTHROPIC_MODEL_TAG,
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+            ABLATION_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="anthropic",
+        name="anthropic/claude-2.0",
         tags=[
             ANTHROPIC_MODEL_TAG,
             TEXT_MODEL_TAG,
@@ -219,17 +286,38 @@ ALL_MODELS = [
             INSTRUCTION_FOLLOWING_MODEL_TAG,
         ],
     ),
+    Model(
+        group="anthropic",
+        name="anthropic/claude-instant-1.2",
+        tags=[
+            ANTHROPIC_MODEL_TAG,
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+            ABLATION_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
     # BigScience
     Model(
         group="together",
         name="together/bloom",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+        ],
     ),
     Model(
         group="together",
         name="together/t0pp",
         # Does not support echo=True
-        tags=[TEXT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, NO_NEWLINES_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            NO_NEWLINES_TAG,
+        ],
     ),
     # Cohere models
     # Model versioning and the possible versions are not documented here:
@@ -245,42 +333,76 @@ ALL_MODELS = [
     Model(
         group="cohere",
         name="cohere/xlarge-20220609",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/xlarge-20221108",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/large-20220720",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/medium-20220720",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/medium-20221108",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/small-20220720",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/command-medium-beta",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
     ),
     Model(
         group="cohere",
         name="cohere/command-xlarge-beta",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, COHERE_TOKENIZER_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            COHERE_TOKENIZER_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
     ),
     # EleutherAI
     Model(
@@ -297,7 +419,12 @@ ALL_MODELS = [
     Model(
         group="together",
         name="together/gpt-neox-20b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, GPTNEO_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            GPTNEO_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="together",
@@ -359,13 +486,21 @@ ALL_MODELS = [
     Model(
         group="together",
         name="together/alpaca-7b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
     ),
     # LMSYS
     Model(
         group="together",
         name="together/vicuna-13b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
     ),
     # MosaicML
     Model(
@@ -377,23 +512,39 @@ ALL_MODELS = [
     Model(
         group="gooseai",
         name="gooseai/gpt-neo-20b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPTNEO_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPTNEO_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gooseai",
         name="gooseai/gpt-j-6b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPTJ_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPTJ_TOKENIZER_TAG,
+        ],
     ),
     # HuggingFace
     Model(
         group="huggingface",
         name="huggingface/gpt2",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="huggingface",
         name="huggingface/gpt-j-6b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPTJ_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPTJ_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="huggingface",
@@ -410,19 +561,32 @@ ALL_MODELS = [
     Model(
         group="huggingface",
         name="huggingface/llama-7b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, LOCAL_HUGGINGFACE_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            LOCAL_HUGGINGFACE_MODEL_TAG,
+        ],
     ),
     Model(
         group="huggingface",
         name="huggingface/alpaca-7b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, LOCAL_HUGGINGFACE_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            LOCAL_HUGGINGFACE_MODEL_TAG,
+        ],
     ),
     # Google
     Model(
         group="together",
         name="together/t5-11b",
         # Does not support echo=True
-        tags=[TEXT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, NO_NEWLINES_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            NO_NEWLINES_TAG,
+        ],
     ),
     Model(
         group="together",
@@ -452,18 +616,32 @@ ALL_MODELS = [
     Model(
         group="together",
         name="together/h3-2.7b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     # OPT
     Model(
         group="together",
         name="together/opt-175b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, OPT_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            OPT_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="together",
         name="together/opt-66b",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, OPT_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            OPT_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="together",
@@ -491,33 +669,57 @@ ALL_MODELS = [
     Model(
         group="microsoft",
         name="microsoft/TNLGv2_530B",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="microsoft",
         name="microsoft/TNLGv2_7B",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     # OpenAI: https://beta.openai.com/docs/engines/gpt-3
     Model(
         group="gpt3",
         name="openai/davinci",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/curie",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/babbage",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/ada",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     # TODO: text-davinci-002 supports insertion. Support insertion in our framework.
     #       https://github.com/stanford-crfm/benchmarking/issues/359
@@ -535,27 +737,48 @@ ALL_MODELS = [
     Model(
         group="gpt3",
         name="openai/text-davinci-002",
-        tags=[TEXT_MODEL_TAG, WIDER_CONTEXT_WINDOW_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            WIDER_CONTEXT_WINDOW_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/text-davinci-001",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/text-curie-001",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/text-babbage-001",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="gpt3",
         name="openai/text-ada-001",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="codex",
@@ -698,12 +921,21 @@ ALL_MODELS = [
     Model(
         group="together",
         name="together/gpt-jt-6b-v1",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPTJ_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPTJ_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="together",
         name="together/gpt-neoxt-chat-base-20b",
-        tags=[TEXT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, CHATML_MODEL_TAG, GPTNEO_TOKENIZER_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            CHATML_MODEL_TAG,
+            GPTNEO_TOKENIZER_TAG,
+        ],
     ),
     Model(
         group="together",
@@ -731,7 +963,12 @@ ALL_MODELS = [
         name="together/glm",
         # Inference with echo=True is not feasible -- in the prompt encoding phase, they use
         # bidirectional attention and do not perform predictions on them.
-        tags=[TEXT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG, NO_NEWLINES_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+            NO_NEWLINES_TAG,
+        ],
     ),
     # Writer
     Model(
@@ -786,7 +1023,11 @@ ALL_MODELS = [
     Model(
         group="together",
         name="together/yalm",
-        tags=[TEXT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, ABLATION_MODEL_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            ABLATION_MODEL_TAG,
+        ],
     ),
     # Google
     Model(
@@ -798,7 +1039,12 @@ ALL_MODELS = [
     Model(
         group="nvidia",
         name="nvidia/megatron-gpt2",
-        tags=[TEXT_MODEL_TAG, FULL_FUNCTIONALITY_TEXT_MODEL_TAG, GPT2_TOKENIZER_TAG, BUGGY_TEMP_0_TAG],
+        tags=[
+            TEXT_MODEL_TAG,
+            FULL_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+            BUGGY_TEMP_0_TAG,
+        ],
     ),
     # Databricks
     Model(
@@ -834,7 +1080,9 @@ ALL_MODELS = [
     ),
 ]
 
-MODEL_NAME_TO_MODEL: Dict[str, Model] = {model.name: model for model in ALL_MODELS}
+MODEL_NAME_TO_MODEL: Dict[str, Model] = {
+    model.name: model for model in ALL_MODELS
+}
 
 
 def get_model(model_name: str) -> Model:
@@ -860,7 +1108,9 @@ def get_models_by_organization(organization: str) -> List[str]:
     """
     Gets models by organization e.g., ai21 => ai21/j1-jumbo, ai21/j1-grande, ai21-large.
     """
-    return [model.name for model in ALL_MODELS if model.organization == organization]
+    return [
+        model.name for model in ALL_MODELS if model.organization == organization
+    ]
 
 
 def get_model_names_with_tag(tag: str) -> List[str]:
