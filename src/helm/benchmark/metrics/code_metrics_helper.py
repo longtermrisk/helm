@@ -33,10 +33,16 @@ from unittest.mock import patch, mock_open
 import numpy as np
 from pyext import RuntimeModule
 
+from helm.common.clr_contrib import clean_code_completion
 from helm.common.hierarchical_logger import hlog
 
 
+# =============================
 # === APPS evaluation below ===
+# === not humaneval related ===
+# =============================
+
+
 class CodeType(Enum):
     call_based = 0
     standard_input = 1
@@ -110,11 +116,14 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
 
     results = []
     sol = (
-        "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, "
-        "combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, "
-        "ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, "
-        "fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as "
-        "np\nimport random\nimport heapq\nfrom heapq import *\n"
+        "import sys\nimport time\nimport itertools\nfrom itertools import"
+        " accumulate, product, permutations, combinations\nimport"
+        " collections\nfrom collections import Counter, OrderedDict, deque,"
+        " defaultdict, ChainMap\nfrom functools import lru_cache\nimport"
+        " math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd,"
+        " exp, log, log2\nimport fractions\nfrom typing import List,"
+        " Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq"
+        " import *\n"
     )
 
     if which_type == CodeType.call_based:
@@ -485,7 +494,10 @@ def call_method(method, inputs):
     return _inner_call_method(method)
 
 
+# =======================
 # === HumanEval below ===
+# === humaneval(code) ===
+# =======================
 
 
 def unsafe_execute_base(problem, completion, timeout, result):
@@ -501,16 +513,21 @@ def unsafe_execute_base(problem, completion, timeout, result):
         # Disable functionalities that can make destructive changes to the test.
         reliability_guard()
 
+        print("completion: ", completion)
+        clean_completion = clean_code_completion(completion)
+        print("clean_completion: ", clean_completion)
+
         # Construct the check program and run it.
         check_program = (
             problem["prompt"]
-            + "    "
-            + completion
+            + clean_completion
             + "\n"
             + problem["test"]
             + "\n"
             + f"check({problem['entry_point']})"
         )
+
+        print("check_program: ", check_program)
 
         try:
             exec_globals = {}
@@ -546,6 +563,7 @@ def check_correctness(
     completion_id: Optional[int] = None,
 ) -> Dict:
     """
+    Used by humaneval(code)
     Evaluates the functional correctness of a completion by running the test
     suite provided in the problem.
     :param completion_id: an optional completion ID so we can match

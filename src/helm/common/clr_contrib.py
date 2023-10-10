@@ -13,13 +13,13 @@ import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_dem
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = True
+USE_THREE_STEPS_SG_IMPLEMENTATION = False
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
 )
 
 
-def load_single_step_goal_prompt():
+def load_single_step_goal_prompt(verbose=False):
     filepath = os.path.join(
         os.path.dirname(surrogate_goal_demo.__file__),
         "../data/messages/measure_p_give_in/without_CoT_with_SG_v106.txt",
@@ -34,12 +34,13 @@ def load_single_step_goal_prompt():
     prompt = (
         prefix_split_str + "\n" + prompt.split(prefix_split_str)[-1].strip()
     )
-    print(f"Loaded single step goal prompt from {filepath}")
-    print(f"Prompt: '{prompt}'")
+    if verbose:
+        print(f"Loaded single step goal prompt from {filepath}")
+        print(f"Prompt: '{prompt}'")
     return prompt
 
 
-def load_three_steps_goal_prompts():
+def load_three_steps_goal_prompts(verbose=False):
     filepath_step_1 = os.path.join(
         os.path.dirname(surrogate_goal_demo.__file__),
         "../data/messages/multi_step_sg_implementation/multi_step_sg_detection_template_v307.txt",
@@ -61,12 +62,13 @@ def load_three_steps_goal_prompts():
     assert prefix_split_str_step_2 in prompt_step_2
     prompt_step_2 = prompt_step_2.split(prefix_split_str_step_2)[-1].strip()
 
-    print(
-        f"Loaded three steps goal prompt from {filepath_step_1} and"
-        f" {filepath_step_2}"
-    )
-    print(f"Prompt step 1: '{prompt_step_1}'")
-    print(f"Prompt step 2: '{prompt_step_2}'")
+    if verbose:
+        print(
+            f"Loaded three steps goal prompt from {filepath_step_1} and"
+            f" {filepath_step_2}"
+        )
+        print(f"Prompt step 1: '{prompt_step_1}'")
+        print(f"Prompt step 2: '{prompt_step_2}'")
     return prompt_step_1, prompt_step_2
 
 
@@ -240,3 +242,34 @@ class MultiStepExecutor(Executor):
         if completion.endswith("```"):
             return completion[len("```") :]
         return completion
+
+
+def clean_code_completion(completion: str):
+    lines = completion.split("\n")
+    lines = [line for line in lines if not line.startswith("#")]
+    lines = [line for line in lines if not line.startswith("import")]
+    lines = [line for line in lines if not line.startswith("def")]
+    lines = [line for line in lines if not line.startswith("class")]
+    lines = [line for line in lines if not line.startswith("from")]
+    lines = [
+        line
+        for i, line in enumerate(lines)
+        if line.startswith("\t")
+        or line.startswith("    ")
+        or (
+            i == 0
+            and not line.endswith(".")
+            and not line.endswith("!")
+            and not line.endswith("?")
+            and not (
+                line.endswith(":")
+                and "if " not in line
+                and "for " not in line
+                and "while " not in line
+            )
+        )
+    ]
+    if len(lines) > 0 and not lines[0].startswith("    "):
+        lines[0] = "    " + lines[0]
+
+    return "\n".join(lines)

@@ -1523,7 +1523,10 @@ def get_disinformation_spec(
     )
 
 
-HUMANEVAL_STOPS_TOKENS = ["\nclass", "\ndef", "\nif", "\nprint"]
+# Initial version from the benchmark
+# HUMANEVAL_STOPS_TOKENS = ["\nclass", "\ndef", "\nif", "\nprint"]
+# Maxime Riche version
+HUMANEVAL_STOPS_TOKENS = ["\nif", "\nprint", "\nassert"]
 
 
 @run_spec_function("code")
@@ -2734,6 +2737,11 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
                         f"{anthropic.AI_PROMPT} {AnthropicClient.PROMPT_ANSWER_START}"
                     ),
                 )
+
+            # Need to add at the start of the assistant completion,
+            # the start of the function to write to prevent it from
+            # writing the start of the function again and breaking the
+            # format of the humaneval(code) benchmark
             if "code:dataset=humaneval" in run_spec.name:
                 format_expander = FormatPromptRunExpander(
                     prefix=format_expander.prefix,
@@ -2745,6 +2753,21 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
             run_spec = singleton(add_to_stop_expander.expand(run_spec))
             run_spec = singleton(increase_max_tokens_expander.expand(run_spec))
             run_spec = singleton(format_expander.expand(run_spec))
+
+        # Doesn't work to fix misformatting in the benchmark,
+        # because this is appended to the user prompt,
+        # not the assistant prompt...
+        # if OPENAI_CHATGPT_MODEL_TAG in model.tags:
+        #     # Need to add at the start of the assistant completion,
+        #     # the start of the function to write to prevent it from
+        #     # writing the start of the function again and breaking the
+        #     # format of the humaneval(code) benchmark
+        #     if "code:dataset=humaneval" in run_spec.name:
+        #         format_expander = FormatPromptRunExpander(
+        #             prefix="",
+        #             suffix="\n{instance.input.text}",
+        #         )
+        #         run_spec = singleton(format_expander.expand(run_spec))
 
         # For multiple choice
         if (
