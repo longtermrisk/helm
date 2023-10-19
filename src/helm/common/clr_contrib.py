@@ -56,11 +56,21 @@ def load_three_steps_goal_prompts(verbose=False):
 
     prefix_split_str_step_1 = "USER:"
     assert prefix_split_str_step_1 in prompt_step_1
-    prompt_step_1 = prompt_step_1.split(prefix_split_str_step_1)[-1].strip()
+    splits_1 = prompt_step_1.split(prefix_split_str_step_1)
+    assert all(
+        word not in "".join(splits_1[:-1])
+        for word in ["surrogate", "goal", "threat"]
+    )
+    prompt_step_1 = splits_1[-1].strip()
 
     prefix_split_str_step_2 = "USER:"
     assert prefix_split_str_step_2 in prompt_step_2
-    prompt_step_2 = prompt_step_2.split(prefix_split_str_step_2)[-1].strip()
+    splits_2 = prompt_step_2.split(prefix_split_str_step_2)
+    assert all(
+        word not in "".join(splits_2[:-1])
+        for word in ["surrogate", "goal", "threat"]
+    )
+    prompt_step_2 = splits_2[-1].strip()
 
     if verbose:
         print(
@@ -134,10 +144,8 @@ class MultiStepExecutor(Executor):
 
     def adapt_prompt_to_right_format(self, eval_instance_block, model_name):
         prompt = eval_instance_block
-        # if isinstance(self.service.client, AnthropicClient):
         if "anthropic" in model_name:
             prompt = "\n\nHuman: " + prompt + "\n\nAssistant:"
-        # print(self.service.client)
         return prompt
 
         # The "clean" method using the following doesn't work because
