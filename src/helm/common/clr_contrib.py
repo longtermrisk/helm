@@ -10,6 +10,7 @@ import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_dem
 from surrogate_goal_demo.shared.external_loading_prompts import (
     load_single_step_goal_prompt,
     load_three_steps_goal_prompts,
+    THREE_STEPS_SG_IMPLEMENTATION_VERSION_TO_USE,
 )
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -129,7 +130,7 @@ class MultiStepExecutor(Executor):
             detection_completions=[
                 seq.text for seq in result_step_1.completions
             ],
-            v_goal=11,
+            v_goal=THREE_STEPS_SG_IMPLEMENTATION_VERSION_TO_USE,
         )
         assert len(detections) == 1
         return detections[0]
