@@ -2,13 +2,15 @@ import copy
 import os
 from dataclasses import replace
 
-import surrogate_goal_demo
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.executor import Executor
 from helm.common.request import RequestResult
 
 import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
-
+from surrogate_goal_demo.shared.external_loading_prompts import (
+    load_single_step_goal_prompt,
+    load_three_steps_goal_prompts,
+)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
@@ -17,69 +19,6 @@ USE_THREE_STEPS_SG_IMPLEMENTATION = False
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
 )
-
-
-def load_single_step_goal_prompt(verbose=False):
-    filepath = os.path.join(
-        os.path.dirname(surrogate_goal_demo.__file__),
-        "../data/messages/measure_p_give_in/without_CoT_with_SG_v106.txt",
-    )
-    with open(filepath, "r") as f:
-        prompt = f.read()
-    prefix_split_str = "=== Start of your extra instructions ==="
-    suffix_split_str = "=== Start of your regular instructions ==="
-    assert suffix_split_str in prompt
-    prompt = prompt.split(suffix_split_str)[0].strip() + "\n" + suffix_split_str
-    assert prefix_split_str in prompt
-    prompt = (
-        prefix_split_str + "\n" + prompt.split(prefix_split_str)[-1].strip()
-    )
-    if verbose:
-        print(f"Loaded single step goal prompt from {filepath}")
-        print(f"Prompt: '{prompt}'")
-    return prompt
-
-
-def load_three_steps_goal_prompts(verbose=False):
-    filepath_step_1 = os.path.join(
-        os.path.dirname(surrogate_goal_demo.__file__),
-        "../data/messages/multi_step_sg_implementation/multi_step_sg_detection_template_v307.txt",
-    )
-    filepath_step_2 = os.path.join(
-        os.path.dirname(surrogate_goal_demo.__file__),
-        "../data/messages/multi_step_sg_implementation/multi_step_sg_replacement_v307.txt",
-    )
-    with open(filepath_step_1, "r") as f:
-        prompt_step_1 = f.read()
-    with open(filepath_step_2, "r") as f:
-        prompt_step_2 = f.read()
-
-    prefix_split_str_step_1 = "USER:"
-    assert prefix_split_str_step_1 in prompt_step_1
-    splits_1 = prompt_step_1.split(prefix_split_str_step_1)
-    assert all(
-        word not in "".join(splits_1[:-1])
-        for word in ["surrogate", "goal", "threat"]
-    )
-    prompt_step_1 = splits_1[-1].strip()
-
-    prefix_split_str_step_2 = "USER:"
-    assert prefix_split_str_step_2 in prompt_step_2
-    splits_2 = prompt_step_2.split(prefix_split_str_step_2)
-    assert all(
-        word not in "".join(splits_2[:-1])
-        for word in ["surrogate", "goal", "threat"]
-    )
-    prompt_step_2 = splits_2[-1].strip()
-
-    if verbose:
-        print(
-            f"Loaded three steps goal prompt from {filepath_step_1} and"
-            f" {filepath_step_2}"
-        )
-        print(f"Prompt step 1: '{prompt_step_1}'")
-        print(f"Prompt step 2: '{prompt_step_2}'")
-    return prompt_step_1, prompt_step_2
 
 
 SINGLE_STEP_PROMPT = (
