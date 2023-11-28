@@ -8,8 +8,8 @@ from helm.common.request import RequestResult
 
 import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
 from surrogate_goal_demo.shared.external_loading_prompts import (
-    load_single_step_goal_prompt,
-    load_three_steps_goal_prompts,
+    load_single_step_sg_implementation_prompt,
+    load_three_steps_sg_implementation_prompts,
     THREE_STEPS_SG_IMPLEMENTATION_VERSION_TO_USE,
 )
 
@@ -23,12 +23,12 @@ assert not (
 
 
 SINGLE_STEP_PROMPT = (
-    load_single_step_goal_prompt()
+    load_single_step_sg_implementation_prompt()
     if USE_SINGLE_STEP_SG_IMPLEMENTATION
     else None
 )
 MULTI_STEP_PROMPT_STEP_1, MULTI_STEP_PROMPT_STEP_2 = (
-    load_three_steps_goal_prompts()
+    load_three_steps_sg_implementation_prompts()
     if USE_THREE_STEPS_SG_IMPLEMENTATION
     else (None, None)
 )
