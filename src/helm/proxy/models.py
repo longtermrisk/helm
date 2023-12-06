@@ -276,6 +276,18 @@ ALL_MODELS = [
     ),
     Model(
         group="anthropic",
+        name="anthropic/claude-2.1",
+        tags=[
+            ANTHROPIC_MODEL_TAG,
+            TEXT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            GPT2_TOKENIZER_TAG,
+            ABLATION_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="anthropic",
         name="anthropic/claude-instant-v1",
         tags=[
             ANTHROPIC_MODEL_TAG,
@@ -844,6 +856,18 @@ ALL_MODELS = [
             INSTRUCTION_FOLLOWING_MODEL_TAG,
         ],
     ),
+    Model(
+        group="gpt4",
+        name="openai/gpt-4-1106-preview",
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT4_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
     # ChatGPT: https://openai.com/blog/chatgpt
     Model(
         group="gpt3",
@@ -879,7 +903,37 @@ ALL_MODELS = [
     ),
     Model(
         group="gpt3",
+        name="openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh3:8NTR8MB7",
+        # The claimed sequence length is 4096, but as of 2023-03-07, the empirical usable
+        # sequence length is smaller at 4087 with one user input message and one assistant
+        # output message because ChatGPT uses special tokens for message roles and boundaries.
+        # We use a rounded-down sequence length of 4000 to account for these special tokens.
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="gpt3",
         name="openai/gpt-3.5-turbo-16k-0613",
+        # Claimed length is 16,384; we round down to 16,000 for the same reasons as explained
+        # in the openai/gpt-3.5-turbo-0613 comment
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="gpt3",
+        name="openai/gpt-3.5-turbo-1106",
         # Claimed length is 16,384; we round down to 16,000 for the same reasons as explained
         # in the openai/gpt-3.5-turbo-0613 comment
         tags=[

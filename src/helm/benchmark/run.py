@@ -26,6 +26,11 @@ from helm.benchmark.model_deployment_registry import (
     register_model_deployments_from_path,
 )
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec
+
+from helm.common.clr_contrib import (
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
+)
 from .executor import ExecutionSpec
 from .runner import Runner, RunSpec, LATEST_SYMLINK
 from .slurm_runner import SlurmRunner
@@ -76,9 +81,11 @@ def run_entries_to_run_specs(
             ):
                 adapter_spec = replace(
                     adapter_spec,
-                    num_train_trials=1
-                    if adapter_spec.max_train_instances == 0
-                    else num_train_trials,
+                    num_train_trials=(
+                        1
+                        if adapter_spec.max_train_instances == 0
+                        else num_train_trials
+                    ),
                 )
             if clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION:
                 adapter_spec = replace(
@@ -177,37 +184,54 @@ def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--skip-instances",
         action="store_true",
-        help="Skip creation of instances (basically do nothing but just parse everything).",
+        help=(
+            "Skip creation of instances (basically do nothing but just parse"
+            " everything)."
+        ),
     )
     parser.add_argument(
         "--cache-instances",
         action="store_true",
-        help="Save generated instances input to model to disk. If already cached, read instances from file.",
+        help=(
+            "Save generated instances input to model to disk. If already"
+            " cached, read instances from file."
+        ),
     )
     parser.add_argument(
         "--cache-instances-only",
         action="store_true",
-        help="Generate and save instances for scenario ONLY (i.e. do not evaluate models on instances).",
+        help=(
+            "Generate and save instances for scenario ONLY (i.e. do not"
+            " evaluate models on instances)."
+        ),
     )
     parser.add_argument(
         "-d",
         "--dry-run",
         action="store_true",
-        help="Skip execution, only output scenario states and estimate token usage.",
+        help=(
+            "Skip execution, only output scenario states and estimate token"
+            " usage."
+        ),
     )
     parser.add_argument(
         "-m",
         "--max-eval-instances",
         type=int,
         required=True,
-        help="Maximum number of instances to evaluate on, overrides the value in Adapter spec.",
+        help=(
+            "Maximum number of instances to evaluate on, overrides the value in"
+            " Adapter spec."
+        ),
     )
     parser.add_argument(
         "-t",
         "--num-train-trials",
         type=int,
-        help="Number of trials where each trial samples a different set of in-context examples. "
-        "Overrides the value in Adapter spec.",
+        help=(
+            "Number of trials where each trial samples a different set of"
+            " in-context examples. Overrides the value in Adapter spec."
+        ),
     )
     parser.add_argument(
         "--suite",
@@ -218,9 +242,12 @@ def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--local",
         action="store_true",
-        help="DEPRECATED: Does nothing. Do not use. Previously enabled local mode. "
-        "Now does nothing and will be removed in the next released version. "
-        "Local mode is enabled by default, and only disabled if the --server_url flag is set.",
+        help=(
+            "DEPRECATED: Does nothing. Do not use. Previously enabled local"
+            " mode. Now does nothing and will be removed in the next released"
+            " version. Local mode is enabled by default, and only disabled if"
+            " the --server_url flag is set."
+        ),
     )
     parser.add_argument(
         "--local-path",
@@ -231,7 +258,10 @@ def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--mongo-uri",
         type=str,
-        help="If non-empty, the URL of the MongoDB database that will be used for caching instead of SQLite",
+        help=(
+            "If non-empty, the URL of the MongoDB database that will be used"
+            " for caching instead of SQLite"
+        ),
         default="",
     )
 
@@ -241,9 +271,10 @@ def validate_args(args):
         args.suite != LATEST_SYMLINK
     ), f"Suite name can't be '{LATEST_SYMLINK}'"
     if args.cache_instances_only:
-        assert (
-            args.cache_instances
-        ), "If --cache-instances-only is set, --cache-instances must also be set."
+        assert args.cache_instances, (
+            "If --cache-instances-only is set, --cache-instances must also be"
+            " set."
+        )
 
 
 def get_args_from_parser():
@@ -259,14 +290,19 @@ def get_args_from_parser():
     parser.add_argument(
         "--models-to-run",
         nargs="+",
-        help="Only RunSpecs with these models specified. If no model is specified, runs with all models.",
+        help=(
+            "Only RunSpecs with these models specified. If no model is"
+            " specified, runs with all models."
+        ),
         default=None,
     )
     parser.add_argument(
         "--groups-to-run",
         nargs="+",
-        help="Only RunSpecs with these (scenario) groups specified. "
-        "If no group is specified, runs with all groups.",
+        help=(
+            "Only RunSpecs with these (scenario) groups specified. "
+            "If no group is specified, runs with all groups."
+        ),
         default=None,
     )
     parser.add_argument(
@@ -283,8 +319,10 @@ def get_args_from_parser():
         "--priority",
         type=int,
         default=None,
-        help="Run RunSpecs with priority less than or equal to this number. "
-        "If a value for --priority is not specified, run on everything",
+        help=(
+            "Run RunSpecs with priority less than or equal to this number. "
+            "If a value for --priority is not specified, run on everything"
+        ),
     )
     parser.add_argument(
         "-r", "--run-specs", nargs="*", help="Specifies what to run", default=[]
@@ -293,27 +331,38 @@ def get_args_from_parser():
         "--enable-huggingface-models",
         nargs="+",
         default=[],
-        help="Experimental: Enable using AutoModelForCausalLM models from Hugging Face Model Hub. "
-        "Format: namespace/model_name[@revision]",
+        help=(
+            "Experimental: Enable using AutoModelForCausalLM models from"
+            " Hugging Face Model Hub. Format: namespace/model_name[@revision]"
+        ),
     )
     parser.add_argument(
         "--enable-local-huggingface-models",
         nargs="+",
         default=[],
-        help="Experimental: Enable using AutoModelForCausalLM models from a local path.",
+        help=(
+            "Experimental: Enable using AutoModelForCausalLM models from a"
+            " local path."
+        ),
     )
     parser.add_argument(
         "--enable-remote-models",
         nargs="+",
         default=[],
-        help="Experimental: Enable remote service models that are not available on the client. "
-        "The client will use RemoteWindowService for windowing.",
+        help=(
+            "Experimental: Enable remote service models that are not available"
+            " on the client. The client will use RemoteWindowService for"
+            " windowing."
+        ),
     )
     parser.add_argument(
         "--use-slurm-runner",
         action="store_true",
-        help="Experimental: If set, each RunSpec will be run in a separate worker Slurm job. "
-        "Currently only works on the Stanford NLP cluster.",
+        help=(
+            "Experimental: If set, each RunSpec will be run in a separate"
+            " worker Slurm job. Currently only works on the Stanford NLP"
+            " cluster."
+        ),
     )
     parser.add_argument(
         "--model-metadata-paths",
@@ -335,6 +384,15 @@ def get_args_from_parser():
 @htrack(None)
 def main():
     args = get_args_from_parser()
+
+    # Added by Maxime Riche for sanity check
+    if USE_SINGLE_STEP_SG_IMPLEMENTATION:
+        assert args.suite == "wt_1_step_SG"
+    elif USE_THREE_STEPS_SG_IMPLEMENTATION:
+        assert args.suite == "wt_3_steps_SG"
+    else:
+        assert args.suite == "wtout_SG"
+
     validate_args(args)
 
     for huggingface_model_name in args.enable_huggingface_models:
@@ -402,9 +460,10 @@ def main():
 
     if args.local:
         hlog(
-            "WARNING: The --local flag is deprecated. It now does nothing and will be removed in "
-            "the next released version. Local mode is enabled by default, and only disabled if the "
-            "--server_url flag is set. Please remove --local from your command."
+            "WARNING: The --local flag is deprecated. It now does nothing and"
+            " will be removed in the next released version. Local mode is"
+            " enabled by default, and only disabled if the --server_url flag is"
+            " set. Please remove --local from your command."
         )
 
     hlog("Done.")

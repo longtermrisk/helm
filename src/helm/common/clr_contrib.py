@@ -194,11 +194,20 @@ class MultiStepExecutor(Executor):
 
 def clean_code_completion(completion: str):
     lines = completion.split("\n")
-    lines = [line for line in lines if not line.startswith("#")]
-    lines = [line for line in lines if not line.startswith("import")]
-    lines = [line for line in lines if not line.startswith("def")]
-    lines = [line for line in lines if not line.startswith("class")]
-    lines = [line for line in lines if not line.startswith("from")]
+
+    # remove lines before the first '```python' statement
+    for i, line in enumerate(lines):
+        if line.strip() == "```python":
+            lines = lines[i + 1 :]
+            break
+
+    lines = [line for line in lines if not line.strip().startswith("#")]
+    lines = [line for line in lines if not line.strip().startswith("import ")]
+    lines = [line for line in lines if not line.startswith("def ")]
+    lines = [line for line in lines if not line.startswith("class ")]
+    lines = [line for line in lines if not line.strip().startswith("from ")]
+    lines = [line for line in lines if not line.strip().startswith("```")]
+
     lines = [
         line
         for i, line in enumerate(lines)
@@ -206,6 +215,7 @@ def clean_code_completion(completion: str):
         or line.startswith("    ")
         or (
             i == 0
+            # keep first line if it is not a regular sentence (part of a comment)
             and not line.endswith(".")
             and not line.endswith("!")
             and not line.endswith("?")
@@ -214,10 +224,25 @@ def clean_code_completion(completion: str):
                 and "if " not in line
                 and "for " not in line
                 and "while " not in line
+                and "except " not in line
+                and "else" not in line
+                and "elif " not in line
+                and "try" not in line
+                and "match " not in line
             )
         )
     ]
+
     if len(lines) > 0 and not lines[0].startswith("    "):
         lines[0] = "    " + lines[0]
+
+    # remove lines after the last 'return XXX' statement if the next line is empty
+    for i, line in enumerate(reversed(lines)):
+        if line.strip().startswith("return "):
+            if i > 0 and len(lines[-i].strip()) == 0:
+                # if "return " not found in the last line and if the previous line was empty
+                # then remove all the lines after the last "return", they are a comment
+                lines = lines[:-i]
+            break
 
     return "\n".join(lines)
