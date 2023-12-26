@@ -1,6 +1,11 @@
 import copy
+import logging
 import os
 from dataclasses import replace
+
+import tiktoken
+from anthropic import HUMAN_PROMPT, AI_PROMPT
+from typing import List, Tuple
 
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.executor import Executor
@@ -16,7 +21,7 @@ from surrogate_goal_demo.shared.external_loading_prompts import (
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = False
+USE_THREE_STEPS_SG_IMPLEMENTATION = True
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
 )
@@ -40,21 +45,36 @@ class MultiStepExecutor(Executor):
         self.adapter = None
 
         initial_request = copy.deepcopy(state.request)
-        need_to_rewrite_prompt = self.detect_need_to_rewrite_prompt(
-            state.request
+        last_message = self.select_last_message(initial_request)
+        need_to_rewrite = self.detect_need_to_rewrite(
+            state.request, last_message
         )
-        state = self.rewrite_prompt_if_needed(
-            state, initial_request, need_to_rewrite_prompt
+        rewritten_last_message = self.rewrite_last_message_if_needed(
+            initial_request, need_to_rewrite, last_message
+        )
+        prompt = self.replace_last_message(
+            rewritten_last_message,
+            initial_request,
+            last_message,
+            need_to_rewrite,
+        )
+        state = self.prepare_request_step_3(
+            initial_request,
+            state,
+            need_to_rewrite,
+            prompt,
         )
 
         return super().process(state)
 
-    def detect_need_to_rewrite_prompt(
-        self, initial_request: RequestState
+    def detect_need_to_rewrite(
+        self, initial_request: RequestState, last_message: str
     ) -> bool:
         new_request = replace(
             initial_request,
-            prompt=self.write_detection_prompt(initial_request),
+            prompt=self.write_detection_prompt(
+                last_message, initial_request.model
+            ),
         )
         new_request = replace(
             new_request,
@@ -72,56 +92,52 @@ class MultiStepExecutor(Executor):
         )
         print("completions:", [seq.text for seq in result_step_1.completions])
         print("========= END SG implementation step 1 =============")
-        return self.extract_detection_need_to_rewrite_prompt(result_step_1)
+        return self.extract_detection_need_to_rewrite(result_step_1)
 
-    def write_detection_prompt(self, initial_request) -> str:
+    def write_detection_prompt(self, last_message, model) -> str:
         eval_instance_block = MULTI_STEP_PROMPT_STEP_1.format(
-            scenario=initial_request.prompt
+            scenario=last_message
         )
-        return self.adapt_prompt_to_right_format(
-            eval_instance_block, initial_request.model
-        )
+        return self.adapt_prompt_to_right_format(eval_instance_block, model)
+
+    def select_last_message(self, initial_request) -> str:
+        if "anthropic" in initial_request.model:
+            all_messages_appended = initial_request.prompt
+            all_messages = self.decompose_anthropic_prompt(
+                all_messages_appended
+            )
+            last_human_message = self.get_last_human_message_anthropic(
+                all_messages
+            )
+            return last_human_message
+        else:
+            return initial_request.prompt
+
+    def decompose_anthropic_prompt(self, all_messages_appended):
+        blocks = all_messages_appended.split(HUMAN_PROMPT)
+        all_messages = []
+        for one_block in blocks:
+            messages_in_block = one_block.split(AI_PROMPT)
+            for i, one_message in enumerate(messages_in_block):
+                if i == 0:
+                    all_messages.append((HUMAN_PROMPT, one_message))
+                else:
+                    all_messages.append((AI_PROMPT, one_message))
+        return all_messages
+
+    def get_last_human_message_anthropic(self, messages: List[Tuple[str, str]]):
+        for message in reversed(messages):
+            if message[0] == HUMAN_PROMPT:
+                return message[1]
+        return None
 
     def adapt_prompt_to_right_format(self, eval_instance_block, model_name):
         prompt = eval_instance_block
         if "anthropic" in model_name:
-            prompt = "\n\nHuman: " + prompt + "\n\nAssistant:"
+            prompt = HUMAN_PROMPT + " " + prompt + AI_PROMPT + ""
         return prompt
 
-        # The "clean" method using the following doesn't work because
-        # it seems that the adapter is used at two different places and
-        # doesn't contain the same information. I get the info from the 2nd use,
-        # which contain 'global_prefix=""'.
-        # Another thing that this method would need to manage would be
-        # the fact that the output_prefix is '\n\nAssistant: The answer is '
-        # instead of the '\n\nAssistant:'. So its already a merged of the
-        # suffix I want one used for this specific case.
-
-        # if self.tokenizer_service == None:
-        #     self.tokenizer_service = TokenizerService(
-        #         self.service, self.execution_spec.auth
-        #     )
-        # if self.adapter == None:
-        #     self.adapter: Adapter = AdapterFactory.get_adapter(
-        #         CURRENT_RUN_SPEC_ADAPTER_SPEC,
-        #         tokenizer_service=self.tokenizer_service,
-        #     )
-        # # Prompt
-        # print("CURRENT_RUN_SPEC_ADAPTER_SPEC", CURRENT_RUN_SPEC_ADAPTER_SPEC)
-        # prompt = Prompt(
-        #     global_prefix=CURRENT_RUN_SPEC_ADAPTER_SPEC.global_prefix,
-        #     instructions_block=[],
-        #     train_instance_blocks=[""],
-        #     eval_instance_block=eval_instance_block,
-        #     instance_prefix="",
-        #     substitutions=CURRENT_RUN_SPEC_ADAPTER_SPEC.substitutions,
-        # )
-        # # Make prompt fit within the context window
-        # prompt = self.adapter._make_prompt_fit(prompt)
-        # print("prompt", prompt)
-        # return prompt.text
-
-    def extract_detection_need_to_rewrite_prompt(
+    def extract_detection_need_to_rewrite(
         self,
         result_step_1: RequestResult,
     ) -> bool:
@@ -135,51 +151,67 @@ class MultiStepExecutor(Executor):
         assert len(detections) == 1
         return detections[0]
 
-    def rewrite_prompt_if_needed(
-        self, state: RequestState, initial_request, need_to_rewrite_prompt
+    def rewrite_last_message_if_needed(
+        self,
+        initial_request,
+        need_to_rewrite_prompt,
+        last_message,
     ) -> RequestState:
+        if not need_to_rewrite_prompt:
+            return None
+
+        new_request = replace(
+            initial_request,
+            prompt=self.write_replacement_prompt(
+                last_message, initial_request.model
+            ),
+        )
+
+        n_tokens = count_tokens(last_message, initial_request.model)
+        new_request = replace(new_request, max_tokens=2 * n_tokens)
+        stop_sequences = ["END"]
+        assert all(
+            stop_seq not in initial_request.prompt
+            for stop_seq in stop_sequences
+        )
+        new_request = replace(
+            new_request,
+            stop_sequences=stop_sequences,
+        )
+        print("========= START SG implementation step 2 =============")
+        print("Going to rewrite prompt")
+        print("prompt", new_request.prompt)
+        result_step_2: RequestResult = self.service.make_request(
+            self.execution_spec.auth, new_request
+        )
+        print("completions:", [seq.text for seq in result_step_2.completions])
+        print("========= END SG implementation step 2 =============")
+        rewritten_last_message = self.extract_rewritten_prompt(result_step_2)
+        return rewritten_last_message
+
+    def prepare_request_step_3(
+        self,
+        initial_request,
+        state,
+        need_to_rewrite_prompt,
+        prompt,
+    ):
         if need_to_rewrite_prompt:
-            new_request = replace(
-                initial_request,
-                prompt=self.write_replacement_prompt(initial_request),
-            )
-            new_request = replace(
-                new_request, max_tokens=2 * len(initial_request.prompt)
-            )
-            stop_sequences = ["END"]
-            assert all(
-                stop_seq not in initial_request.prompt
-                for stop_seq in stop_sequences
-            )
-            new_request = replace(
-                new_request,
-                stop_sequences=stop_sequences,
-            )
-            print("========= START SG implementation step 2 =============")
-            print("Going to rewrite prompt")
-            print("prompt", new_request.prompt)
-            result_step_2: RequestResult = self.service.make_request(
-                self.execution_spec.auth, new_request
-            )
-            print(
-                "completions:", [seq.text for seq in result_step_2.completions]
-            )
-            print("========= END SG implementation step 2 =============")
             rewritten_request = replace(
                 initial_request,
-                prompt=self.extract_rewritten_prompt(result_step_2),
+                prompt=prompt,
             )
             state = replace(state, request=rewritten_request)
         else:
             state = replace(state, request=initial_request)
         return state
 
-    def write_replacement_prompt(self, initial_request: RequestState) -> str:
+    def write_replacement_prompt(self, last_message, model) -> str:
         eval_instance_block = MULTI_STEP_PROMPT_STEP_2.format(
-            scenario=initial_request.prompt
+            scenario=last_message
         )
         return self.adapt_prompt_to_right_format(
-            eval_instance_block, model_name=initial_request.model
+            eval_instance_block, model_name=model
         )
 
     def extract_rewritten_prompt(self, result_step_2: RequestResult) -> str:
@@ -190,6 +222,28 @@ class MultiStepExecutor(Executor):
         if completion.endswith("```"):
             return completion[len("```") :]
         return completion
+
+    def replace_last_message(
+        self,
+        rewritten_last_message,
+        initial_request,
+        last_message,
+        need_to_rewrite,
+    ) -> str:
+        if not need_to_rewrite:
+            return None
+
+        if "anthropic" in initial_request.model:
+            initial_prompt = initial_request.prompt
+            assert (
+                len(initial_prompt.split(last_message)) == 2
+            ), f"last_message: {last_message}, initial_prompt: {initial_prompt}"
+            prompt = initial_prompt.replace(
+                last_message, rewritten_last_message
+            )
+        else:
+            prompt = rewritten_last_message
+        return prompt
 
 
 def clean_code_completion(completion: str):
@@ -246,3 +300,13 @@ def clean_code_completion(completion: str):
             break
 
     return "\n".join(lines)
+
+
+def count_tokens(text: str, model):
+    if model.startswith("ft:"):
+        model_simplified = model.split(":")[1]
+        encoding = tiktoken.encoding_for_model(model_simplified)
+    else:
+        encoding = tiktoken.encoding_for_model(model)
+    tokens = encoding.encode(text)
+    return len(tokens)
