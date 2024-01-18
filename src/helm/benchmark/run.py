@@ -362,11 +362,11 @@ def main():
 
     # Added by Maxime Riche for sanity check
     if USE_SINGLE_STEP_SG_IMPLEMENTATION:
-        assert args.suite == "wt_1_step_SG"
+        assert args.suite == "wt_1_step_SG", f"Wrong suite name: {args.suite}"
     elif USE_THREE_STEPS_SG_IMPLEMENTATION:
-        assert args.suite == "wt_3_steps_SG"
+        assert args.suite == "wt_3_steps_SG", f"Wrong suite name: {args.suite}"
     else:
-        assert args.suite == "wtout_SG"
+        assert args.suite == "wtout_SG", f"Wrong suite name: {args.suite}"
 
     validate_args(args)
 

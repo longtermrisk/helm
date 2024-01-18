@@ -21,7 +21,7 @@ from surrogate_goal_demo.shared.external_loading_prompts import (
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = True
+USE_THREE_STEPS_SG_IMPLEMENTATION = False
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
 )
