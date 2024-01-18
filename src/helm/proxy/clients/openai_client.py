@@ -1,19 +1,31 @@
 # mypy: check_untyped_defs = False
+import traceback
 from dataclasses import replace
-from typing import Any, Dict, List, Optional, cast, Union
+from typing import Any, Dict, List, Optional, cast
+from typing import Union
 
 from helm.benchmark.model_metadata_registry import is_vlm
 from helm.common.cache import CacheConfig
-from helm.common.media_object import TEXT_TYPE
-from helm.common.request import wrap_request_time, Request, RequestResult, Sequence, Token
 from helm.common.hierarchical_logger import hlog
+from helm.common.media_object import TEXT_TYPE
 from helm.common.optional_dependencies import handle_module_not_found_error
+from helm.common.request import (
+    wrap_request_time,
+    Request,
+    RequestResult,
+    Sequence,
+    Token,
+)
 from helm.common.tokenization_request import (
     TokenizationRequest,
     TokenizationRequestResult,
 )
 from helm.proxy.tokenizers.tokenizer import Tokenizer
-from .client import CachingClient, truncate_sequence, generate_uid_for_multimodal_prompt
+from .client import (
+    CachingClient,
+    truncate_sequence,
+    generate_uid_for_multimodal_prompt,
+)
 
 try:
     import openai
@@ -21,7 +33,9 @@ except ModuleNotFoundError as e:
     handle_module_not_found_error(e, ["openai"])
 
 
-ORIGINAL_COMPLETION_ATTRIBUTES = openai.api_resources.completion.Completion.__bases__
+ORIGINAL_COMPLETION_ATTRIBUTES = (
+    openai.api_resources.completion.Completion.__bases__
+)
 
 
 class OpenAIClient(CachingClient):
@@ -43,7 +57,9 @@ class OpenAIClient(CachingClient):
         self.api_base: str = "https://api.openai.com/v1"
 
     def _is_chat_model_engine(self, model_engine: str):
-        return model_engine.startswith("gpt-3.5") or model_engine.startswith("gpt-4")
+        return model_engine.startswith("gpt-3.5") or model_engine.startswith(
+            "gpt-4"
+        )
 
     def _set_access_info(self):
         # Following https://beta.openai.com/docs/api-reference/authentication
@@ -56,7 +72,9 @@ class OpenAIClient(CachingClient):
         cache_key = CachingClient.make_cache_key(raw_request, request)
         if is_vlm(request.model):
             assert request.multimodal_prompt is not None
-            prompt_key: str = generate_uid_for_multimodal_prompt(request.multimodal_prompt)
+            prompt_key: str = generate_uid_for_multimodal_prompt(
+                request.multimodal_prompt
+            )
             cache_key = {**cache_key, "multimodal_prompt": prompt_key}
             del cache_key["messages"]
         return cache_key
@@ -72,17 +90,23 @@ class OpenAIClient(CachingClient):
                 "engine": request.model_engine,
             }
         elif self._is_chat_model_engine(request.model_engine):
-            messages: Optional[List[Dict[str, Union[str, Any]]]] = request.messages
+            messages: Optional[List[Dict[str, Union[str, Any]]]] = (
+                request.messages
+            )
             if request.messages and len(request.messages) > 1:
                 # Checks that all messages have a role and some content
                 for message in request.messages:
                     if not message.get("role") or not message.get("content"):
-                        raise ValueError("All messages must have a role and content")
+                        raise ValueError(
+                            "All messages must have a role and content"
+                        )
                 # Checks that the last role is "user"
                 if request.messages[-1]["role"] != "user":
                     raise ValueError("Last message must have role 'user'")
                 if request.prompt != "":
-                    hlog("WARNING: Since message is set, prompt will be ignored")
+                    hlog(
+                        "WARNING: Since message is set, prompt will be ignored"
+                    )
             else:
                 # Convert prompt into a single message
                 # For now, put the whole prompt in a single user message, and expect the response
@@ -96,19 +120,40 @@ class OpenAIClient(CachingClient):
                 if request.multimodal_prompt is not None:
                     content = []
                     for media_object in request.multimodal_prompt.media_objects:
-                        if media_object.is_type("image") and media_object.location:
+                        if (
+                            media_object.is_type("image")
+                            and media_object.location
+                        ):
                             from helm.common.images_utils import encode_base64
 
-                            base64_image: str = encode_base64(media_object.location)
+                            base64_image: str = encode_base64(
+                                media_object.location
+                            )
                             content.append(
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{base64_image}"
+                                    },
+                                }
                             )
                         elif media_object.is_type(TEXT_TYPE):
                             if media_object.text is None:
-                                raise ValueError("MediaObject of text type has missing text field value")
-                            content.append({"type": media_object.type, "text": media_object.text})
+                                raise ValueError(
+                                    "MediaObject of text type has missing text"
+                                    " field value"
+                                )
+                            content.append(
+                                {
+                                    "type": media_object.type,
+                                    "text": media_object.text,
+                                }
+                            )
                         else:
-                            raise ValueError(f"Unrecognized MediaObject type {media_object.type}")
+                            raise ValueError(
+                                "Unrecognized MediaObject type"
+                                f" {media_object.type}"
+                            )
 
                 else:
                     content = request.prompt
@@ -121,7 +166,9 @@ class OpenAIClient(CachingClient):
                 "temperature": request.temperature,
                 "top_p": request.top_p,
                 "n": request.num_completions,
-                "stop": request.stop_sequences or None,  # API doesn't like empty list
+                "stop": (
+                    request.stop_sequences or None
+                ),  # API doesn't like empty list
                 # Note: Chat models may require adding an extra token to max_tokens
                 # for the internal special role token.
                 "max_tokens": request.max_tokens,
@@ -142,7 +189,9 @@ class OpenAIClient(CachingClient):
                 "max_tokens": request.max_tokens,
                 "best_of": request.top_k_per_token,
                 "logprobs": request.top_k_per_token,
-                "stop": request.stop_sequences or None,  # API doesn't like empty list
+                "stop": (
+                    request.stop_sequences or None
+                ),  # API doesn't like empty list
                 "top_p": request.top_p,
                 "presence_penalty": request.presence_penalty,
                 "frequency_penalty": request.frequency_penalty,
@@ -151,8 +200,12 @@ class OpenAIClient(CachingClient):
 
             # OpenAI doesn't let you ask for more completions than the number of
             # per-token candidates.
-            raw_request["best_of"] = max(raw_request["best_of"], raw_request["n"])
-            raw_request["logprobs"] = max(raw_request["logprobs"], raw_request["n"])
+            raw_request["best_of"] = max(
+                raw_request["best_of"], raw_request["n"]
+            )
+            raw_request["logprobs"] = max(
+                raw_request["logprobs"], raw_request["n"]
+            )
 
         if request.embedding:
 
@@ -170,15 +223,41 @@ class OpenAIClient(CachingClient):
 
             def do_it():
                 self._set_access_info()
-                openai.api_resources.completion.Completion.__bases__ = ORIGINAL_COMPLETION_ATTRIBUTES
+                openai.api_resources.completion.Completion.__bases__ = (
+                    ORIGINAL_COMPLETION_ATTRIBUTES
+                )
                 return openai.Completion.create(**raw_request)
+
+        if raw_request["max_tokens"] == 0 and self._is_chat_model_engine(
+            request.model_engine
+        ):
+            print(
+                "WARNING: You are requesting an empty completion while this is"
+                " not supported by the OpenAI chat API."
+            )
+            print(
+                "WARNING suite 1: You are likely trying to use a benchmark that"
+                " requires logprobs while the OpenAI chat API doesn't provide"
+                " that"
+            )
+            print("WARNING suite 2: raw_request =", raw_request)
 
         try:
             cache_key = self._get_cache_key(raw_request, request)
-            response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
+            response, cached = self.cache.get(
+                cache_key, wrap_request_time(do_it)
+            )
         except openai.error.OpenAIError as e:
-            error: str = f"OpenAI error: {e}"
-            return RequestResult(success=False, cached=False, error=error, completions=[], embedding=[])
+            error: str = (
+                f"OpenAI error: {e}, traceback: {traceback.format_exc()}"
+            )
+            return RequestResult(
+                success=False,
+                cached=False,
+                error=error,
+                completions=[],
+                embedding=[],
+            )
 
         # If the user is requesting completions instead of an embedding, then `completions`
         # needs to be populated, and `embedding` should be an empty list and vice-versa.
@@ -194,10 +273,16 @@ class OpenAIClient(CachingClient):
                 # The OpenAI chat completion API doesn't support echo.
                 # If `echo_prompt` is true, combine the prompt and completion.
                 raw_completion_content = raw_completion["message"]["content"]
-                text: str = request.prompt + raw_completion_content if request.echo_prompt else raw_completion_content
+                text: str = (
+                    request.prompt + raw_completion_content
+                    if request.echo_prompt
+                    else raw_completion_content
+                )
                 # The OpenAI chat completion API doesn't return us tokens or logprobs, so we tokenize ourselves.
-                tokenization_result: TokenizationRequestResult = self.tokenizer.tokenize(
-                    TokenizationRequest(text, tokenizer=self.tokenizer_name)
+                tokenization_result: TokenizationRequestResult = (
+                    self.tokenizer.tokenize(
+                        TokenizationRequest(text, tokenizer=self.tokenizer_name)
+                    )
                 )
                 # Log probs are not currently not supported by the OpenAI chat completion API, so set to 0 for now.
                 tokens = [
@@ -210,7 +295,9 @@ class OpenAIClient(CachingClient):
                     tokens=tokens,
                     finish_reason={"reason": raw_completion["finish_reason"]},
                 )
-                completions.append(truncate_sequence(completion, request))  # Truncate the text by stop sequences
+                completions.append(
+                    truncate_sequence(completion, request)
+                )  # Truncate the text by stop sequences
         else:
             for raw_completion in response["choices"]:
                 sequence_logprob = 0
@@ -218,9 +305,17 @@ class OpenAIClient(CachingClient):
 
                 raw_data = raw_completion["logprobs"]
                 for text, logprob, top_logprobs in zip(
-                    raw_data["tokens"], raw_data["token_logprobs"], raw_data["top_logprobs"]
+                    raw_data["tokens"],
+                    raw_data["token_logprobs"],
+                    raw_data["top_logprobs"],
                 ):
-                    tokens.append(Token(text=text, logprob=logprob or 0, top_logprobs=dict(top_logprobs or {})))
+                    tokens.append(
+                        Token(
+                            text=text,
+                            logprob=logprob or 0,
+                            top_logprobs=dict(top_logprobs or {}),
+                        )
+                    )
                     sequence_logprob += logprob or 0
                 completion = Sequence(
                     text=raw_completion["text"],
@@ -232,7 +327,12 @@ class OpenAIClient(CachingClient):
                 # so we need to manually truncate the list of tokens.
                 # TODO: filed an issue with their support to check what the expected behavior here is.
                 completion = truncate_sequence(
-                    completion, replace(request, stop_sequences=request.stop_sequences + [OpenAIClient.END_OF_TEXT])
+                    completion,
+                    replace(
+                        request,
+                        stop_sequences=request.stop_sequences
+                        + [OpenAIClient.END_OF_TEXT],
+                    ),
                 )
                 completions.append(completion)
 

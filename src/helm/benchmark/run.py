@@ -1,4 +1,5 @@
 import argparse
+import copy
 from dataclasses import replace
 from typing import List, Optional
 from helm.benchmark.huggingface_registration import (
@@ -11,7 +12,10 @@ from helm.common.general import ensure_directory_exists
 from helm.common.hierarchical_logger import hlog, htrack, htrack_block
 from helm.common.authentication import Authentication
 from helm.common.object_spec import parse_object_spec, get_class_by_name
-from helm.proxy.services.remote_service import create_authentication, add_service_args
+from helm.proxy.services.remote_service import (
+    create_authentication,
+    add_service_args,
+)
 
 from helm.benchmark.config_registry import (
     register_configs_from_directory,
@@ -20,9 +24,14 @@ from helm.benchmark.config_registry import (
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec
 from helm.benchmark import heim_run_specs  # noqa
 from helm.benchmark import vlm_run_specs  # noqa
+from helm.common.clr_contrib import (
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
+)
 from .executor import ExecutionSpec
 from .runner import Runner, RunSpec, LATEST_SYMLINK, set_benchmark_output_path
 from .run_specs import construct_run_specs
+import helm.common.clr_contrib as clr_contrib
 
 
 def run_entries_to_run_specs(
@@ -40,31 +49,68 @@ def run_entries_to_run_specs(
         if priority is not None and entry.priority > priority:
             continue
 
-        for run_spec in construct_run_specs(parse_object_spec(entry.description)):
+        for run_spec in construct_run_specs(
+            parse_object_spec(entry.description)
+        ):
             # Filter by models
-            if models_to_run and run_spec.adapter_spec.model not in models_to_run:
+            if (
+                models_to_run
+                and run_spec.adapter_spec.model not in models_to_run
+            ):
                 continue
 
             # Filter by groups
-            if groups_to_run and not any(group in groups_to_run for group in run_spec.groups):
+            if groups_to_run and not any(
+                group in groups_to_run for group in run_spec.groups
+            ):
                 continue
 
             # Modify AdapterSpec
             adapter_spec: AdapterSpec = run_spec.adapter_spec
-            if max_eval_instances is not None and adapter_spec.max_eval_instances is None:
-                adapter_spec = replace(adapter_spec, max_eval_instances=max_eval_instances)
+            if (
+                max_eval_instances is not None
+                and adapter_spec.max_eval_instances is None
+            ):
+                adapter_spec = replace(
+                    adapter_spec, max_eval_instances=max_eval_instances
+                )
 
             if adapter_spec.max_train_instances == 0:
                 adapter_spec = replace(adapter_spec, num_train_trials=1)
             elif num_train_trials is not None:
-                adapter_spec = replace(adapter_spec, num_train_trials=num_train_trials)
+                adapter_spec = replace(
+                    adapter_spec, num_train_trials=num_train_trials
+                )
 
+            if clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION:
+                adapter_spec = replace(
+                    adapter_spec,
+                    instructions=clr_contrib.SINGLE_STEP_PROMPT
+                    + adapter_spec.instructions,
+                )
+            # Not working, see the clr_contrib.py file for explanations
+            # if (
+            #     clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION
+            #     or clr_contrib.USE_THREE_STEPS_SG_IMPLEMENTATION
+            # ):
+            #     print("Setting CURRENT_RUN_SPEC_ADAPTER_SPEC")
+            #     print("adapter_spec", adapter_spec)
+            #     clr_contrib.CURRENT_RUN_SPEC_ADAPTER_SPEC = copy.deepcopy(
+            #         adapter_spec
+            #     )
             run_spec = replace(run_spec, adapter_spec=adapter_spec)
-
             # Append groups
             if entry.groups is not None:
-                groups_name: str = "" if len(entry.groups) == 0 else f",groups={'-'.join(sorted(entry.groups))}"
-                run_spec = replace(run_spec, name=run_spec.name + groups_name, groups=run_spec.groups + entry.groups)
+                groups_name: str = (
+                    ""
+                    if len(entry.groups) == 0
+                    else f",groups={'-'.join(sorted(entry.groups))}"
+                )
+                run_spec = replace(
+                    run_spec,
+                    name=run_spec.name + groups_name,
+                    groups=run_spec.groups + entry.groups,
+                )
 
             run_specs.append(run_spec)
 
@@ -100,7 +146,9 @@ def run_benchmarking(
     with htrack_block("run_specs"):
         for run_spec in run_specs:
             hlog(run_spec)
-    runner_cls = get_class_by_name(runner_class_name) if runner_class_name else Runner
+    runner_cls = (
+        get_class_by_name(runner_class_name) if runner_class_name else Runner
+    )
     runner: Runner = runner_cls(
         execution_spec,
         output_path,
@@ -117,43 +165,70 @@ def run_benchmarking(
 
 def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
-        "-o", "--output-path", type=str, help="Where to save all the output", default="benchmark_output"
+        "-o",
+        "--output-path",
+        type=str,
+        help="Where to save all the output",
+        default="benchmark_output",
     )
-    parser.add_argument("-n", "--num-threads", type=int, help="Max number of threads to make requests", default=4)
+    parser.add_argument(
+        "-n",
+        "--num-threads",
+        type=int,
+        help="Max number of threads to make requests",
+        default=4,
+    )
     parser.add_argument(
         "--skip-instances",
         action="store_true",
-        help="Skip creation of instances (basically do nothing but just parse everything).",
+        help=(
+            "Skip creation of instances (basically do nothing but just parse"
+            " everything)."
+        ),
     )
     parser.add_argument(
         "--cache-instances",
         action="store_true",
-        help="Save generated instances input to model to disk. If already cached, read instances from file.",
+        help=(
+            "Save generated instances input to model to disk. If already"
+            " cached, read instances from file."
+        ),
     )
     parser.add_argument(
         "--cache-instances-only",
         action="store_true",
-        help="Generate and save instances for scenario ONLY (i.e. do not evaluate models on instances).",
+        help=(
+            "Generate and save instances for scenario ONLY (i.e. do not"
+            " evaluate models on instances)."
+        ),
     )
     parser.add_argument(
         "-d",
         "--dry-run",
         action="store_true",
-        help="Skip execution, only output scenario states and estimate token usage.",
+        help=(
+            "Skip execution, only output scenario states and estimate token"
+            " usage."
+        ),
     )
     parser.add_argument(
         "-m",
         "--max-eval-instances",
         type=int,
         required=True,
-        help="Maximum number of instances to evaluate on, overrides the value in Adapter spec.",
+        help=(
+            "Maximum number of instances to evaluate on, overrides the value in"
+            " Adapter spec."
+        ),
     )
     parser.add_argument(
         "-t",
         "--num-train-trials",
         type=int,
-        help="Number of trials where each trial samples a different set of in-context examples. "
-        "Overrides the value in Adapter spec.",
+        help=(
+            "Number of trials where each trial samples a different set of"
+            " in-context examples. Overrides the value in Adapter spec."
+        ),
     )
     parser.add_argument(
         "--suite",
@@ -164,9 +239,12 @@ def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--local",
         action="store_true",
-        help="DEPRECATED: Does nothing. Do not use. Previously enabled local mode. "
-        "Now does nothing and will be removed in the next released version. "
-        "Local mode is enabled by default, and only disabled if the --server_url flag is set.",
+        help=(
+            "DEPRECATED: Does nothing. Do not use. Previously enabled local"
+            " mode. Now does nothing and will be removed in the next released"
+            " version. Local mode is enabled by default, and only disabled if"
+            " the --server_url flag is set."
+        ),
     )
     parser.add_argument(
         "--local-path",
@@ -177,19 +255,26 @@ def add_run_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--mongo-uri",
         type=str,
-        help="If non-empty, the URL of the MongoDB database that will be used for caching instead of SQLite",
+        help=(
+            "If non-empty, the URL of the MongoDB database that will be used"
+            " for caching instead of SQLite"
+        ),
         default="",
     )
 
 
 def validate_args(args):
-    assert args.suite != LATEST_SYMLINK, f"Suite name can't be '{LATEST_SYMLINK}'"
+    assert (
+        args.suite != LATEST_SYMLINK
+    ), f"Suite name can't be '{LATEST_SYMLINK}'"
     if args.cache_instances_only:
-        assert args.cache_instances, "If --cache-instances-only is set, --cache-instances must also be set."
+        assert args.cache_instances, (
+            "If --cache-instances-only is set, --cache-instances must also be"
+            " set."
+        )
 
 
-@htrack(None)
-def main():
+def get_args_from_parser():
     parser = argparse.ArgumentParser()
     add_service_args(parser)
     parser.add_argument(
@@ -202,13 +287,19 @@ def main():
     parser.add_argument(
         "--models-to-run",
         nargs="+",
-        help="Only RunSpecs with these models specified. If no model is specified, runs with all models.",
+        help=(
+            "Only RunSpecs with these models specified. If no model is"
+            " specified, runs with all models."
+        ),
         default=None,
     )
     parser.add_argument(
         "--groups-to-run",
         nargs="+",
-        help="Only RunSpecs with these (scenario) groups specified. " "If no group is specified, runs with all groups.",
+        help=(
+            "Only RunSpecs with these (scenario) groups specified. "
+            "If no group is specified, runs with all groups."
+        ),
         default=None,
     )
     parser.add_argument(
@@ -225,31 +316,58 @@ def main():
         "--priority",
         type=int,
         default=None,
-        help="Run RunSpecs with priority less than or equal to this number. "
-        "If a value for --priority is not specified, run on everything",
+        help=(
+            "Run RunSpecs with priority less than or equal to this number. "
+            "If a value for --priority is not specified, run on everything"
+        ),
     )
-    parser.add_argument("-r", "--run-specs", nargs="*", help="Specifies what to run", default=[])
+    parser.add_argument(
+        "-r", "--run-specs", nargs="*", help="Specifies what to run", default=[]
+    )
     parser.add_argument(
         "--enable-huggingface-models",
         nargs="+",
         default=[],
-        help="Experimental: Enable using AutoModelForCausalLM models from Hugging Face Model Hub. "
-        "Format: namespace/model_name[@revision]",
+        help=(
+            "Experimental: Enable using AutoModelForCausalLM models from"
+            " Hugging Face Model Hub. Format: namespace/model_name[@revision]"
+        ),
     )
     parser.add_argument(
         "--enable-local-huggingface-models",
         nargs="+",
         default=[],
-        help="Experimental: Enable using AutoModelForCausalLM models from a local path.",
+        help=(
+            "Experimental: Enable using AutoModelForCausalLM models from a"
+            " local path."
+        ),
     )
     parser.add_argument(
         "--runner-class-name",
         type=str,
         default=None,
-        help="Full class name of the Runner class to use. If unset, uses the default Runner.",
+        help=(
+            "Full class name of the Runner class to use. If unset, uses the"
+            " default Runner."
+        ),
     )
     add_run_args(parser)
     args = parser.parse_args()
+    return args
+
+
+@htrack(None)
+def main():
+    args = get_args_from_parser()
+
+    # Added by Maxime Riche for sanity check
+    if USE_SINGLE_STEP_SG_IMPLEMENTATION:
+        assert args.suite == "wt_1_step_SG"
+    elif USE_THREE_STEPS_SG_IMPLEMENTATION:
+        assert args.suite == "wt_3_steps_SG"
+    else:
+        assert args.suite == "wtout_SG"
+
     validate_args(args)
 
     register_builtin_configs_from_helm_package()
@@ -265,7 +383,10 @@ def main():
         run_entries.extend(read_run_entries(args.conf_paths).entries)
     if args.run_specs:
         run_entries.extend(
-            [RunEntry(description=description, priority=1, groups=None) for description in args.run_specs]
+            [
+                RunEntry(description=description, priority=1, groups=None)
+                for description in args.run_specs
+            ]
         )
 
     # Must set benchmark output path before getting RunSpecs,
@@ -288,7 +409,9 @@ def main():
         return
 
     auth: Authentication = (
-        Authentication("") if args.skip_instances or not args.server_url else create_authentication(args)
+        Authentication("")
+        if args.skip_instances or not args.server_url
+        else create_authentication(args)
     )
 
     run_benchmarking(
@@ -311,9 +434,10 @@ def main():
 
     if args.local:
         hlog(
-            "WARNING: The --local flag is deprecated. It now does nothing and will be removed in "
-            "the next released version. Local mode is enabled by default, and only disabled if the "
-            "--server_url flag is set. Please remove --local from your command."
+            "WARNING: The --local flag is deprecated. It now does nothing and"
+            " will be removed in the next released version. Local mode is"
+            " enabled by default, and only disabled if the --server_url flag is"
+            " set. Please remove --local from your command."
         )
 
     hlog("Done.")

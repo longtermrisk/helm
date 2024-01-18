@@ -78,7 +78,7 @@ def truncate_sequence(sequence: Sequence, request: Request, print_warning: bool 
         if len(new_text) < len(sequence.text) and len(new_tokens) == len(sequence.tokens):
             hlog(
                 f"WARNING: Stripped characters from text ({len(sequence.text)} -> {len(new_text)}), "
-                f"but wasn't able to strip the tokens"
+                "but wasn't able to strip the tokens"
             )
 
         # Recompute log probability

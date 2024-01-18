@@ -1,3 +1,4 @@
+import traceback
 from typing import Any, Dict, List, Optional
 import json
 import requests
@@ -5,6 +6,12 @@ import time
 import urllib.parse
 
 from helm.common.cache import CacheConfig
+import websocket
+import anthropic
+import threading
+
+from helm.benchmark import run_specs
+from helm.common.cache import Cache, CacheConfig
 from helm.common.hierarchical_logger import htrack_block, hlog
 from helm.common.optional_dependencies import handle_module_not_found_error
 from helm.common.request import (
@@ -50,14 +57,16 @@ class AnthropicClient(CachingClient):
     handle yet (we have not limit on prompt length + max_tokens). TODO(#1520): Fix this.
     """
 
-    MAX_COMPLETION_LENGTH: int = (
-        8192  # See https://docs.google.com/document/d/1vX6xgoA-KEKxqtMlBVAqYvE8KUfZ7ABCjTxAjf1T5kI/edit#
-    )
+    MAX_COMPLETION_LENGTH: int = 8192  # See https://docs.google.com/document/d/1vX6xgoA-KEKxqtMlBVAqYvE8KUfZ7ABCjTxAjf1T5kI/edit#
     ADDITIONAL_TOKENS: int = 5
     PROMPT_ANSWER_START: str = "The answer is "
 
     def __init__(
-        self, tokenizer: Tokenizer, tokenizer_name: str, cache_config: CacheConfig, api_key: Optional[str] = None
+        self,
+        tokenizer: Tokenizer,
+        tokenizer_name: str,
+        cache_config: CacheConfig,
+        api_key: Optional[str] = None,
     ):
         super().__init__(cache_config=cache_config)
         self.tokenizer = tokenizer
@@ -67,9 +76,13 @@ class AnthropicClient(CachingClient):
 
     def _send_request(self, raw_request: Dict[str, Any]) -> Dict[str, Any]:
         if self.api_key is None:
-            raise Exception("API key is not set. Please set it in the HELM config file.")
-        result = self._client.completion(**raw_request)
-        assert "error" not in result, f"Request failed with error: {result['error']}"
+            raise Exception(
+                "API key is not set. Please set it in the HELM config file."
+            )
+        result = self._client.completions.create(**raw_request)
+        assert (
+            "error" not in result
+        ), f"Request failed with error: {result['error']}"
         return result
 
     def _filter_completion(self, completion: str, max_tokens: int) -> str:
@@ -97,8 +110,9 @@ class AnthropicClient(CachingClient):
     def make_request(self, request: Request) -> RequestResult:
         if request.max_tokens > AnthropicClient.MAX_COMPLETION_LENGTH:
             raise ValueError(
-                "The value for `max_tokens` exceeds the currently supported maximum "
-                f"({request.max_tokens} > {AnthropicClient.MAX_COMPLETION_LENGTH})."
+                "The value for `max_tokens` exceeds the currently supported"
+                f" maximum ({request.max_tokens} >"
+                f" {AnthropicClient.MAX_COMPLETION_LENGTH})."
             )
         if request.max_tokens == 0 and not request.echo_prompt:
             raise ValueError("echo_prompt must be True when max_tokens=0.")
@@ -121,6 +135,13 @@ class AnthropicClient(CachingClient):
 
                 def do_it():
                     result = self._send_request(raw_request)
+                    result = {
+                        "completion": result.completion,
+                        "model": result.model,
+                        "stop_reason": result.stop_reason,
+                        "stop": result.stop,
+                        "log_id": result.log_id,
+                    }
                     assert "completion" in result, f"Invalid response: {result}"
                     return result
 
@@ -138,7 +159,9 @@ class AnthropicClient(CachingClient):
                     request,
                 )
 
-                response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
+                response, cached = self.cache.get(
+                    cache_key, wrap_request_time(do_it)
+                )
             except Exception as error:
                 if "Prompt must contain anthropic.AI_PROMPT" in str(error):
                     return RequestResult(
@@ -147,7 +170,9 @@ class AnthropicClient(CachingClient):
                         error=str(error),
                         completions=[],
                         embedding=[],
-                        error_flags=ErrorFlags(is_retriable=False, is_fatal=False),
+                        error_flags=ErrorFlags(
+                            is_retriable=False, is_fatal=False
+                        ),
                     )
                 if "exceeds max (" in str(error):
                     return RequestResult(
@@ -156,15 +181,29 @@ class AnthropicClient(CachingClient):
                         error=str(error),
                         completions=[],
                         embedding=[],
-                        error_flags=ErrorFlags(is_retriable=False, is_fatal=False),
+                        error_flags=ErrorFlags(
+                            is_retriable=False, is_fatal=False
+                        ),
                     )
-                return RequestResult(success=False, cached=False, error=str(error), completions=[], embedding=[])
+                return RequestResult(
+                    success=False,
+                    cached=False,
+                    error=str(error),
+                    completions=[],
+                    embedding=[],
+                )
 
             # Post process the completion.
-            response["completion"] = self._filter_completion(response["completion"], request.max_tokens)
+            response["completion"] = self._filter_completion(
+                response["completion"], request.max_tokens
+            )
 
             # The Anthropic API doesn't support echo. If `echo_prompt` is true, combine the prompt and completion.
-            text: str = request.prompt + response["completion"] if request.echo_prompt else response["completion"]
+            text: str = (
+                request.prompt + response["completion"]
+                if request.echo_prompt
+                else response["completion"]
+            )
             # The Anthropic API doesn't return us tokens or logprobs, so we tokenize ourselves.
             tokenization_result: TokenizationRequestResult = self.tokenizer.tokenize(
                 # Anthropic uses their own tokenizer
@@ -173,13 +212,18 @@ class AnthropicClient(CachingClient):
 
             # Log probs are not currently not supported by the Anthropic, so set to 0 for now.
             tokens: List[Token] = [
-                Token(text=str(text), logprob=0, top_logprobs={}) for text in tokenization_result.raw_tokens
+                Token(text=str(text), logprob=0, top_logprobs={})
+                for text in tokenization_result.raw_tokens
             ]
 
-            completion = Sequence(text=response["completion"], logprob=0, tokens=tokens)
+            completion = Sequence(
+                text=response["completion"], logprob=0, tokens=tokens
+            )
             # See NOTE() in _filter_completion() to understand why warnings are printed for truncation.
             # TODO(#1512): Fix this with post-processing.
-            sequence = truncate_sequence(completion, request, print_warning=True)
+            sequence = truncate_sequence(
+                completion, request, print_warning=True
+            )
             completions.append(sequence)
 
         return RequestResult(
@@ -222,7 +266,12 @@ class AnthropicLegacyClient(CachingClient):
     BASE_ENDPOINT: str = "feedback-frontend-v2.he.anthropic.com"
     TOP_K_LOGPROBS_ENDPOINT: str = "topk_logprobs"
 
-    LOGPROBS_RESPONSE_KEYS: List[str] = ["tokens", "logprobs", "topk_tokens", "topk_logprobs"]
+    LOGPROBS_RESPONSE_KEYS: List[str] = [
+        "tokens",
+        "logprobs",
+        "topk_tokens",
+        "topk_logprobs",
+    ]
     EMPTY_LOGPROBS_RESPONSE: Dict[str, List[Any]] = {
         "tokens": [],
         "logprobs": [],
@@ -236,7 +285,10 @@ class AnthropicLegacyClient(CachingClient):
             response: Dict = json.loads(raw_response)
             for key in AnthropicLegacyClient.LOGPROBS_RESPONSE_KEYS:
                 if key not in response:
-                    hlog(f"Invalid logprobs response: {raw_response}. Missing key: {key}")
+                    hlog(
+                        f"Invalid logprobs response: {raw_response}. Missing"
+                        f" key: {key}"
+                    )
                     return False
             return True
         except json.decoder.JSONDecodeError:
@@ -257,8 +309,9 @@ class AnthropicLegacyClient(CachingClient):
             raise ValueError(f"Invalid model: {request.model}")
         if request.max_tokens > AnthropicLegacyClient.MAX_COMPLETION_LENGTH:
             raise ValueError(
-                "The value for `max_tokens` exceeds the currently supported maximum "
-                f"({request.max_tokens} > {AnthropicLegacyClient.MAX_COMPLETION_LENGTH})."
+                "The value for `max_tokens` exceeds the currently supported"
+                f" maximum ({request.max_tokens} >"
+                f" {AnthropicLegacyClient.MAX_COMPLETION_LENGTH})."
             )
         if request.max_tokens == 0 and not request.echo_prompt:
             raise ValueError("echo_prompt must be True when max_tokens=0.")
@@ -285,9 +338,13 @@ class AnthropicLegacyClient(CachingClient):
                 return {
                     "text": request.prompt,
                     "logprobs": self.make_logprobs_request(
-                        request.prompt, request.top_k_per_token, request.model_engine
+                        request.prompt,
+                        request.top_k_per_token,
+                        request.model_engine,
                     ),
-                    "stop_reason": "length",  # Set `stop_reason` to "length" because max_tokens is 0
+                    "stop_reason": (
+                        "length"
+                    ),  # Set `stop_reason` to "length" because max_tokens is 0
                 }
 
             with htrack_block("Creating WebSocket connection with Anthropic"):
@@ -298,10 +355,19 @@ class AnthropicLegacyClient(CachingClient):
                         f"wss://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{request.model_engine}/sample"
                         f"?{urllib.parse.urlencode(auth)}"
                     )
-                    ws = websocket.create_connection(endpoint, header=auth)
+                    header = {
+                        "key": f"Bearer {self.api_key}",
+                        # "anthropic-version": "2023-06-01",
+                    }
+                    ws = websocket.create_connection(endpoint, header=header)
 
-                    websocket_established_connection_time: float = time.time() - start
-                    hlog(f"Established connection ({websocket_established_connection_time:.2f}s)")
+                    websocket_established_connection_time: float = (
+                        time.time() - start
+                    )
+                    hlog(
+                        "Established connection"
+                        f" ({websocket_established_connection_time:.2f}s)"
+                    )
 
                     # The connection is established. Send the request.
                     ws.send(json.dumps(raw_request))
@@ -319,39 +385,62 @@ class AnthropicLegacyClient(CachingClient):
                         if not raw_response:
                             # At this point, if we are getting back an empty response, it's most likely
                             # the connection dropped. We will try again.
-                            hlog(f"{len(tokens)} tokens in, but received an empty response. Trying again...")
+                            hlog(
+                                f"{len(tokens)} tokens in, but received an"
+                                " empty response. Trying again..."
+                            )
                             continue
 
                         response: Dict = json.loads(raw_response)
                         if "exception" in response:
-                            raise AnthropicRequestError(f"Anthropic error: {response['exception']}")
+                            raise AnthropicRequestError(
+                                f"Anthropic error: {response['exception']}"
+                            )
 
                         # Anthropic lets us know when we should stop streaming by sending us a `stop_reason`
                         stop_reason: Optional[str] = response["stop_reason"]
                         # Break out of the loop once we get back a `stop_reason`
                         if stop_reason:
-                            hlog(f"Ceasing to send request because of the `stop_reason` in response: {stop_reason}")
+                            hlog(
+                                "Ceasing to send request because of the"
+                                f" `stop_reason` in response: {stop_reason}"
+                            )
                             break
 
                         completion_text: str = response["completion"]
-                        assert completion_text.startswith(previous_completion_text), (
-                            f"Could not compute next token:\n"
+                        assert completion_text.startswith(
+                            previous_completion_text
+                        ), (
+                            "Could not compute next token:\n"
                             f"request: {raw_request}\n"
                             f"previous: {repr(previous_completion_text)}\n"
                             f"completion: {repr(completion_text)}"
                         )
-                        token_text: str = completion_text[len(previous_completion_text) :]
+                        token_text: str = completion_text[
+                            len(previous_completion_text) :
+                        ]
                         # We sometimes get replacement character as the token, but they seem
                         # to disappear in the next iteration, so skip these.
                         if "�" in token_text:
-                            hlog(f"Found the replacement character in the token text: {token_text}. Skipping...")
+                            hlog(
+                                "Found the replacement character in the token"
+                                f" text: {token_text}. Skipping..."
+                            )
                             continue
 
                         # Anthropic is sending us excess tokens beyond the stop sequences,
                         # so we have to stop early ourselves.
-                        if any(stop in token_text for stop in request.stop_sequences):
-                            hlog(f"Received {repr(token_text)}, which has a stop sequence - early stopping.")
-                            stop_reason = AnthropicLegacyClient.STOP_SEQUENCE_STOP_REASON
+                        if any(
+                            stop in token_text
+                            for stop in request.stop_sequences
+                        ):
+                            hlog(
+                                f"Received {repr(token_text)}, which has a stop"
+                                " sequence - early stopping."
+                            )
+                            stop_reason = (
+                                AnthropicLegacyClient.STOP_SEQUENCE_STOP_REASON
+                            )
                             break
 
                         tokens.append(token_text)
@@ -359,13 +448,22 @@ class AnthropicLegacyClient(CachingClient):
                     ws.close()
                 except websocket.WebSocketException as error:
                     hlog(str(error))
-                    raise AnthropicRequestError(f"Anthropic error: {str(error)}")
+                    raise AnthropicRequestError(
+                        f"Anthropic error: {str(error)}. Traceback:"
+                        f" {traceback.format_exc()}"
+                    )
 
                 # Anthropic doesn't support echoing the prompt, so we have to manually prepend the completion
                 # with the prompt when `echo_prompt` is True.
-                text: str = request.prompt + response["completion"] if request.echo_prompt else response["completion"]
+                text: str = (
+                    request.prompt + response["completion"]
+                    if request.echo_prompt
+                    else response["completion"]
+                )
                 logprobs = self.make_logprobs_request(
-                    request.prompt + response["completion"], request.top_k_per_token, request.model_engine
+                    request.prompt + response["completion"],
+                    request.top_k_per_token,
+                    request.model_engine,
                 )
 
                 check_logprobs: bool = False
@@ -380,8 +478,9 @@ class AnthropicLegacyClient(CachingClient):
                         # This is a known limitation with the Anthropic API. For now keep track of the
                         # entries with the mismatch.
                         hlog(
-                            f"WARNING: naive truncation for logprobs did not work."
-                            f"\nRequest:{raw_request}\nExpected: {tokens}\nActual: {logprobs['tokens']}"
+                            "WARNING: naive truncation for logprobs did not"
+                            f" work.\nRequest:{raw_request}\nExpected:"
+                            f" {tokens}\nActual: {logprobs['tokens']}"
                         )
                         check_logprobs = True
 
@@ -416,19 +515,39 @@ class AnthropicLegacyClient(CachingClient):
                     },
                     request,
                 )
-                response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
+                response, cached = self.cache.get(
+                    cache_key, wrap_request_time(do_it)
+                )
             except AnthropicRequestError as error:
-                return RequestResult(success=False, cached=False, error=str(error), completions=[], embedding=[])
+                return RequestResult(
+                    success=False,
+                    cached=False,
+                    error=str(error),
+                    completions=[],
+                    embedding=[],
+                )
 
             sequence_logprob: float = 0
             tokens: List[Token] = []
             log_probs: Dict[str, List[Any]] = response["logprobs"]
 
             for text, token_logprob, all_logprobs, all_tokens in zip(
-                log_probs["tokens"], log_probs["logprobs"], log_probs["topk_logprobs"], log_probs["topk_tokens"]
+                log_probs["tokens"],
+                log_probs["logprobs"],
+                log_probs["topk_logprobs"],
+                log_probs["topk_tokens"],
             ):
-                top_logprobs: Dict[str, float] = {text: logprob for text, logprob in zip(all_tokens, all_logprobs)}
-                tokens.append(Token(text=text, logprob=token_logprob, top_logprobs=top_logprobs))
+                top_logprobs: Dict[str, float] = {
+                    text: logprob
+                    for text, logprob in zip(all_tokens, all_logprobs)
+                }
+                tokens.append(
+                    Token(
+                        text=text,
+                        logprob=token_logprob,
+                        top_logprobs=top_logprobs,
+                    )
+                )
                 sequence_logprob += token_logprob
 
             finish_reason: str = response["stop_reason"]
@@ -446,7 +565,9 @@ class AnthropicLegacyClient(CachingClient):
             completions.append(completion)
             request_time += response["request_time"]
             # Use the datetime from the first completion because that's when the request was fired
-            request_datetime = request_datetime or response.get("request_datetime")
+            request_datetime = request_datetime or response.get(
+                "request_datetime"
+            )
             all_cached = all_cached and cached
 
         return RequestResult(
@@ -458,7 +579,9 @@ class AnthropicLegacyClient(CachingClient):
             embedding=[],
         )
 
-    def make_logprobs_request(self, text: str, top_k_per_token: int, model_engine: str) -> Dict[str, List[Any]]:
+    def make_logprobs_request(
+        self, text: str, top_k_per_token: int, model_engine: str
+    ) -> Dict[str, List[Any]]:
         """
         Get the token log probs and top candidates for a given text using the endpoint: topk_logprobs.
         """
@@ -471,21 +594,30 @@ class AnthropicLegacyClient(CachingClient):
         try:
             logprobs_response = requests.request(
                 method="POST",
-                url=f"https://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{model_engine}/"
-                f"{AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT}",
+                url=(
+                    f"https://{AnthropicLegacyClient.BASE_ENDPOINT}/model/{model_engine}/"
+                    f"{AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT}"
+                ),
                 headers={
                     "Authorization": f"BEARER {self.api_key}",
                     "Content-Type": "application/json",
+                    # "anthropic-version": "2023-06-01",
                 },
-                data=json.dumps({"q": text, "k": top_k_per_token, "is_replicated": True}),
+                data=json.dumps(
+                    {"q": text, "k": top_k_per_token, "is_replicated": True}
+                ),
             )
             raw_response = logprobs_response.text
         except requests.exceptions.RequestException as error:
             hlog(str(error))
             raise AnthropicRequestError(
-                f"Anthropic {AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT} error: {str(error)}"
+                "Anthropic"
+                f" {AnthropicLegacyClient.TOP_K_LOGPROBS_ENDPOINT} error:"
+                f" {str(error)}"
             )
 
         if not AnthropicLegacyClient.is_valid_logprobs_response(raw_response):
-            raise AnthropicRequestError(f"Invalid logprobs response: {raw_response}")
+            raise AnthropicRequestError(
+                f"Invalid logprobs response: {raw_response}"
+            )
         return json.loads(raw_response)

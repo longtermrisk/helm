@@ -18,6 +18,7 @@ import gc
 from enum import Enum
 import faulthandler
 import io
+from functools import partial
 from io import StringIO
 import json
 import multiprocessing
@@ -32,10 +33,16 @@ from unittest.mock import patch, mock_open
 import numpy as np
 from pyext import RuntimeModule
 
+from helm.common.clr_contrib import clean_code_completion
 from helm.common.hierarchical_logger import hlog
 
 
+# =============================
 # === APPS evaluation below ===
+# === not humaneval related ===
+# =============================
+
+
 class CodeType(Enum):
     call_based = 0
     standard_input = 1
@@ -109,11 +116,14 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
 
     results = []
     sol = (
-        "import sys\nimport time\nimport itertools\nfrom itertools import accumulate, product, permutations, "
-        "combinations\nimport collections\nfrom collections import Counter, OrderedDict, deque, defaultdict, "
-        "ChainMap\nfrom functools import lru_cache\nimport math\nfrom math import sqrt, sin, cos, tan, ceil, "
-        "fabs, floor, gcd, exp, log, log2\nimport fractions\nfrom typing import List, Tuple\nimport numpy as "
-        "np\nimport random\nimport heapq\nfrom heapq import *\n"
+        "import sys\nimport time\nimport itertools\nfrom itertools import"
+        " accumulate, product, permutations, combinations\nimport"
+        " collections\nfrom collections import Counter, OrderedDict, deque,"
+        " defaultdict, ChainMap\nfrom functools import lru_cache\nimport"
+        " math\nfrom math import sqrt, sin, cos, tan, ceil, fabs, floor, gcd,"
+        " exp, log, log2\nimport fractions\nfrom typing import List,"
+        " Tuple\nimport numpy as np\nimport random\nimport heapq\nfrom heapq"
+        " import *\n"
     )
 
     if which_type == CodeType.call_based:
@@ -152,7 +162,9 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 new_test += "def code():\n"
                 new_test += i
                 started = True
-            elif started and ((i.startswith("from ")) or (i.startswith("import "))):
+            elif started and (
+                (i.startswith("from ")) or (i.startswith("import "))
+            ):
                 new_test += "\t" + i
             else:
                 new_test += i
@@ -192,13 +204,17 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
 
         try:
             if isinstance(in_outs["outputs"][index], dict):
-                in_outs["outputs"][index] = [{int(k): v for k, v in in_outs["outputs"][index].items()}]
+                in_outs["outputs"][index] = [
+                    {int(k): v for k, v in in_outs["outputs"][index].items()}
+                ]
         except:
             pass
 
         try:
             if isinstance(in_outs["outputs"][index][0], dict):
-                in_outs["outputs"][index] = [{int(k): v for k, v in in_outs["outputs"][index][0].items()}]
+                in_outs["outputs"][index] = [
+                    {int(k): v for k, v in in_outs["outputs"][index][0].items()}
+                ]
         except:
             pass
 
@@ -213,13 +229,21 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                     output = list(output)
 
                 tmp_result = output == in_outs["outputs"][index]
-                if isinstance(in_outs["outputs"][index], list) and in_outs["outputs"][index]:
-                    tmp_result = tmp_result or (output == in_outs["outputs"][index][0])
+                if (
+                    isinstance(in_outs["outputs"][index], list)
+                    and in_outs["outputs"][index]
+                ):
+                    tmp_result = tmp_result or (
+                        output == in_outs["outputs"][index][0]
+                    )
 
                 # ground truth sequences are not tuples
                 try:
                     if isinstance(output[0], tuple):
-                        tmp_result = tmp_result or ([list(x) for x in output] == in_outs["outputs"][index][0])
+                        tmp_result = tmp_result or (
+                            [list(x) for x in output]
+                            == in_outs["outputs"][index][0]
+                        )
                 except:
                     pass
                 results.append(tmp_result)
@@ -229,7 +253,9 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
             except Exception:
                 signal.alarm(0)
                 faulthandler.disable()
-                hlog(f"Standard input runtime error or time limit exceeded error")
+                hlog(
+                    f"Standard input runtime error or time limit exceeded error"
+                )
                 results.append(-1)
                 continue
             faulthandler.disable()
@@ -253,7 +279,9 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 except Exception:
                     # runtime error or took too long
                     signal.alarm(0)
-                    hlog(f"Call-based runtime error or time limit exceeded error")
+                    hlog(
+                        f"Call-based runtime error or time limit exceeded error"
+                    )
                     results.append(-1)
                 signal.alarm(0)
 
@@ -273,9 +301,14 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
             try:
                 tmp_result = output == [in_outs["outputs"][index]]
                 if isinstance(in_outs["outputs"][index], list):
-                    tmp_result = tmp_result or (output == in_outs["outputs"][index])
+                    tmp_result = tmp_result or (
+                        output == in_outs["outputs"][index]
+                    )
                     if isinstance(output[0], str):
-                        tmp_result = tmp_result or ([e.strip() for e in output] == in_outs["outputs"][index])
+                        tmp_result = tmp_result or (
+                            [e.strip() for e in output]
+                            == in_outs["outputs"][index]
+                        )
             except Exception:
                 hlog(f"Failed check1 exception")
                 pass
@@ -289,17 +322,27 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 for tmp_index, i in enumerate(in_outs["outputs"][index]):
                     in_outs["outputs"][index][tmp_index] = i.split("\n")
                     in_outs["outputs"][index][tmp_index] = [
-                        x.strip() for x in in_outs["outputs"][index][tmp_index] if x
+                        x.strip()
+                        for x in in_outs["outputs"][index][tmp_index]
+                        if x
                     ]
             else:
-                in_outs["outputs"][index] = in_outs["outputs"][index].split("\n")
-                in_outs["outputs"][index] = list(filter(len, in_outs["outputs"][index]))
-                in_outs["outputs"][index] = list(map(lambda x: x.strip(), in_outs["outputs"][index]))
+                in_outs["outputs"][index] = in_outs["outputs"][index].split(
+                    "\n"
+                )
+                in_outs["outputs"][index] = list(
+                    filter(len, in_outs["outputs"][index])
+                )
+                in_outs["outputs"][index] = list(
+                    map(lambda x: x.strip(), in_outs["outputs"][index])
+                )
 
             try:
                 tmp_result = output == [in_outs["outputs"][index]]
                 if isinstance(in_outs["outputs"][index], list):
-                    tmp_result = tmp_result or (output == in_outs["outputs"][index])
+                    tmp_result = tmp_result or (
+                        output == in_outs["outputs"][index]
+                    )
             except Exception:
                 hlog(f"Failed check2 exception")
                 pass
@@ -319,7 +362,9 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
             try:
                 tmp_result = output == [in_outs["outputs"][index]]
                 if isinstance(in_outs["outputs"][index], list):
-                    tmp_result = tmp_result or (output == in_outs["outputs"][index])
+                    tmp_result = tmp_result or (
+                        output == in_outs["outputs"][index]
+                    )
             except Exception:
                 hlog(f"Failed check3 exception")
                 pass
@@ -328,7 +373,8 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 output_float = [float(e) for e in output]
                 gt_float = [float(e) for e in in_outs["outputs"][index]]
                 tmp_result = tmp_result or (
-                    (len(output_float) == len(gt_float)) and np.allclose(output_float, gt_float)
+                    (len(output_float) == len(gt_float))
+                    and np.allclose(output_float, gt_float)
                 )
             except:
                 pass
@@ -337,7 +383,8 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                     output_float = [float(e) for e in output[0]]
                     gt_float = [float(e) for e in in_outs["outputs"][index][0]]
                     tmp_result = tmp_result or (
-                        (len(output_float) == len(gt_float)) and np.allclose(output_float, gt_float)
+                        (len(output_float) == len(gt_float))
+                        and np.allclose(output_float, gt_float)
                     )
             except:
                 pass
@@ -351,7 +398,9 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 for tmp_index, i in enumerate(in_outs["outputs"][index]):
                     in_outs["outputs"][index][tmp_index] = set(i.split())
             else:
-                in_outs["outputs"][index] = set(in_outs["outputs"][index].split())
+                in_outs["outputs"][index] = set(
+                    in_outs["outputs"][index].split()
+                )
 
             try:
                 tmp_result = output == in_outs["outputs"][index]
@@ -376,15 +425,22 @@ def run_test(root: str, test: str, timeout: float) -> List[Union[int, bool]]:
                 output = set(output)
 
             try:
-                tmp_result = set(frozenset(s) for s in output) == set(frozenset(s) for s in in_outs["outputs"][index])
+                tmp_result = set(frozenset(s) for s in output) == set(
+                    frozenset(s) for s in in_outs["outputs"][index]
+                )
             except Exception:
                 hlog(f"Failed check5 exception")
 
             # if they are all numbers, round so that similar numbers are treated as identical
             try:
                 tmp_result = tmp_result or (
-                    set(frozenset(round(float(t), 3) for t in s) for s in output)
-                    == set(frozenset(round(float(t), 3) for t in s) for s in in_outs["outputs"][index])
+                    set(
+                        frozenset(round(float(t), 3) for t in s) for s in output
+                    )
+                    == set(
+                        frozenset(round(float(t), 3) for t in s)
+                        for s in in_outs["outputs"][index]
+                    )
                 )
             except Exception:
                 hlog(f"Failed check6 exception")
@@ -438,9 +494,76 @@ def call_method(method, inputs):
     return _inner_call_method(method)
 
 
+# =======================
 # === HumanEval below ===
-def check_correctness(problem: Dict, completion: str, timeout: float, completion_id: Optional[int] = None) -> Dict:
+# === humaneval(code) ===
+# =======================
+
+
+def unsafe_execute_base(problem, completion, timeout, result):
+    with create_tempdir():
+        # These system calls are needed when cleaning up tempdir.
+        import os
+        import shutil
+
+        rmtree = shutil.rmtree
+        rmdir = os.rmdir
+        chdir = os.chdir
+
+        # Disable functionalities that can make destructive changes to the test.
+        reliability_guard()
+
+        print("completion: ", completion)
+        clean_completion = clean_code_completion(completion)
+        print("clean_completion: ", clean_completion)
+
+        # Construct the check program and run it.
+        check_program = (
+            problem["prompt"]
+            + clean_completion
+            + "\n"
+            + problem["test"]
+            + "\n"
+            + f"check({problem['entry_point']})"
+        )
+
+        print("check_program: ", check_program)
+
+        try:
+            exec_globals = {}
+            with swallow_io():
+                with time_limit(timeout):
+                    # WARNING
+                    # This program exists to execute untrusted model-generated code. Although
+                    # it is highly unlikely that model-generated code will do something overtly
+                    # malicious in response to this test suite, model-generated code may act
+                    # destructively due to a lack of model capability or alignment.
+                    # Users are strongly encouraged to sandbox this evaluation suite so that it
+                    # does not perform destructive actions on their host or network. For more
+                    # information on how OpenAI sandboxes its code, see the accompanying paper.
+                    # Once you have read this disclaimer and taken appropriate precautions,
+                    # uncomment the following line and proceed at your own risk:
+                    exec(check_program, exec_globals)
+            result.append("passed")
+        except TimeoutException:
+            result.append("timed out")
+        except BaseException as e:
+            result.append(f"failed: {e}")
+
+        # Needed for cleaning up.
+        shutil.rmtree = rmtree
+        os.rmdir = rmdir
+        os.chdir = chdir
+
+
+def check_correctness(
+    problem: Dict,
+    completion: str,
+    timeout: float,
+    completion_id: Optional[int] = None,
+) -> Dict:
     """
+    Used by humaneval(code)
     Evaluates the functional correctness of a completion by running the test
     suite provided in the problem.
     :param completion_id: an optional completion ID so we can match
@@ -499,7 +622,13 @@ def check_correctness(problem: Dict, completion: str, timeout: float, completion
 
     manager = multiprocessing.Manager()
     result: List[str] = manager.list()
-
+    unsafe_execute = partial(
+        unsafe_execute_base,
+        problem=problem,
+        completion=completion,
+        timeout=timeout,
+        result=result,
+    )
     p = multiprocessing.Process(target=unsafe_execute)
     p.start()
     p.join(timeout=timeout + 1)
@@ -532,10 +661,17 @@ def reliability_guard(maximum_memory_bytes: Optional[int] = None):
     if maximum_memory_bytes is not None:
         import resource
 
-        resource.setrlimit(resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes))
-        resource.setrlimit(resource.RLIMIT_DATA, (maximum_memory_bytes, maximum_memory_bytes))
+        resource.setrlimit(
+            resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes)
+        )
+        resource.setrlimit(
+            resource.RLIMIT_DATA, (maximum_memory_bytes, maximum_memory_bytes)
+        )
         if not platform.uname().system == "Darwin":
-            resource.setrlimit(resource.RLIMIT_STACK, (maximum_memory_bytes, maximum_memory_bytes))
+            resource.setrlimit(
+                resource.RLIMIT_STACK,
+                (maximum_memory_bytes, maximum_memory_bytes),
+            )
 
     faulthandler.disable()
 
