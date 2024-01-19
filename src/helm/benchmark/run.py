@@ -28,9 +28,14 @@ from helm.common.clr_contrib import (
     USE_SINGLE_STEP_SG_IMPLEMENTATION,
     USE_THREE_STEPS_SG_IMPLEMENTATION,
 )
-from .executor import ExecutionSpec
-from .runner import Runner, RunSpec, LATEST_SYMLINK, set_benchmark_output_path
-from .run_specs import construct_run_specs
+from helm.benchmark.executor import ExecutionSpec
+from helm.benchmark.runner import (
+    Runner,
+    RunSpec,
+    LATEST_SYMLINK,
+    set_benchmark_output_path,
+)
+from helm.benchmark.run_specs import construct_run_specs
 import helm.common.clr_contrib as clr_contrib
 
 

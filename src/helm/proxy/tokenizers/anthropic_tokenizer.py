@@ -4,6 +4,7 @@ import threading
 
 from helm.common.cache import CacheConfig
 from helm.common.optional_dependencies import handle_module_not_found_error
+from surrogate_goal_demo.shared import constants
 from .caching_tokenizer import CachingTokenizer
 from transformers import PreTrainedTokenizerBase, PreTrainedTokenizerFast
 
@@ -21,9 +22,14 @@ class AnthropicTokenizer(CachingTokenizer):
 
     def __init__(self, cache_config: CacheConfig) -> None:
         super().__init__(cache_config)
+        self._client = anthropic.Anthropic(
+            api_key=(constants.REPO_ROOT / "anthropic_api_key.txt")
+            .read_text()
+            .strip()
+        )
         with AnthropicTokenizer.LOCK:
             self._tokenizer: PreTrainedTokenizerBase = PreTrainedTokenizerFast(
-                tokenizer_object=anthropic.get_tokenizer()
+                tokenizer_object=self._client.get_tokenizer()
             )
 
     def _tokenize_do_it(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -38,15 +44,23 @@ class AnthropicTokenizer(CachingTokenizer):
                     )
             else:
                 with AnthropicTokenizer.LOCK:
-                    tokens = self._tokenizer.encode(request["text"], add_special_tokens=False)
+                    tokens = self._tokenizer.encode(
+                        request["text"], add_special_tokens=False
+                    )
         else:
             # No encoding, just return the token strings
-            tokens = [self._tokenizer.convert_tokens_to_string([i]) for i in self._tokenizer.tokenize(request["text"])]
+            tokens = [
+                self._tokenizer.convert_tokens_to_string([i])
+                for i in self._tokenizer.tokenize(request["text"])
+            ]
         return {"tokens": tokens}
 
     def _decode_do_it(self, request: Dict[str, Any]) -> Dict[str, Any]:
         with AnthropicTokenizer.LOCK:
             text = self._tokenizer.decode(
-                request["tokens"], clean_up_tokenization_spaces=request["clean_up_tokenization_spaces"]
+                request["tokens"],
+                clean_up_tokenization_spaces=request[
+                    "clean_up_tokenization_spaces"
+                ],
             )
         return {"text": text}

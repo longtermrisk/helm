@@ -328,6 +328,11 @@ class InContextLearningAdapter(Adapter, ABC):
         else:
             result += self.adapter_spec.output_prefix.rstrip()
 
+        if "{instance.input.text}" in result:
+            result = result.replace(
+                "{instance.input.text}", str(instance.input.text).strip()
+            )
+
         return result
 
     def construct_output(
@@ -369,18 +374,6 @@ class InContextLearningAdapter(Adapter, ABC):
                 output = no_correct_references
             else:
                 output = first_correct_reference.output.text
-
-        if include_output:
-            output += (
-                self.adapter_spec.output_prefix
-                + output
-                + self.adapter_spec.output_suffix
-            )
-
-        if "{instance.input.text}" in output:
-            output = output.replace(
-                "{instance.input.text}", str(instance.input.text).strip()
-            )
 
         return output
 
