@@ -3,6 +3,7 @@ import importlib
 import itertools
 from functools import partial
 from typing import Any, Callable, List, Dict, Optional, Set, TypeVar
+from dataclasses import replace
 
 import anthropic
 
@@ -3801,60 +3802,37 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
             ANTHROPIC_CLAUDE_1_MODEL_TAG in model.tags
             or ANTHROPIC_CLAUDE_2_MODEL_TAG in model.tags
         ):
-            add_to_stop_expander = AddToStopRunExpander(anthropic.HUMAN_PROMPT)
-            increase_max_tokens_expander = IncreaseMaxTokensRunExpander(
-                value=AnthropicClient.ADDITIONAL_TOKENS
-            )
-            # Get scenario tags
-            components = run_spec.scenario_spec.class_name.split(".")
-            class_name = components[-1]
-            module_name = ".".join(components[:-1])
-            cls = getattr(importlib.import_module(module_name), class_name)
-            scenario_tags: List[str] = cls.tags
-            # If the scenario is instruction, do not use PROMPT_ANSWER_START
-            if "instructions" in scenario_tags:
-                format_expander = FormatPromptRunExpander(
-                    prefix=anthropic.HUMAN_PROMPT,
-                    suffix=f"{anthropic.AI_PROMPT}",
-                )
-            else:
-                format_expander = FormatPromptRunExpander(
-                    prefix=anthropic.HUMAN_PROMPT,
-                    suffix=(
-                        f"{anthropic.AI_PROMPT} {AnthropicClient.PROMPT_ANSWER_START}"
-                    ),
-                )
-
             # Need to add at the start of the assistant completion,
             # the start of the function to write to prevent it from
             # writing the start of the function again and breaking the
             # format of the humaneval(code) benchmark
             if "code:dataset=humaneval" in run_spec.name:
                 format_expander = FormatPromptRunExpander(
-                    prefix=format_expander.prefix,
-                    suffix=format_expander.suffix.rstrip()
-                    + ":"
-                    + "\n{instance.input.text}",
+                    prefix="",
+                    suffix=anthropic.AI_PROMPT + "\n{instance.input.text}",
                 )
+                run_spec = replace(
+                    run_spec,
+                    name=run_spec.name,
+                    adapter_spec=replace(
+                        run_spec.adapter_spec,
+                        global_prefix=anthropic.HUMAN_PROMPT,
+                        global_suffix="",
+                    ),
+                )
+                run_spec = singleton(format_expander.expand(run_spec))
 
-            run_spec = singleton(add_to_stop_expander.expand(run_spec))
-            run_spec = singleton(increase_max_tokens_expander.expand(run_spec))
-            run_spec = singleton(format_expander.expand(run_spec))
-
-        # Doesn't work to fix misformatting in the benchmark,
-        # because this is appended to the user prompt,
-        # not the assistant prompt...
-        # if OPENAI_CHATGPT_MODEL_TAG in model.tags:
-        #     # Need to add at the start of the assistant completion,
-        #     # the start of the function to write to prevent it from
-        #     # writing the start of the function again and breaking the
-        #     # format of the humaneval(code) benchmark
-        #     if "code:dataset=humaneval" in run_spec.name:
-        #         format_expander = FormatPromptRunExpander(
-        #             prefix="",
-        #             suffix="\n{instance.input.text}",
-        #         )
-        #         run_spec = singleton(format_expander.expand(run_spec))
+        if GOOGLE_GEMINI_MODEL_TAG in model.tags:
+            if "code:dataset=humaneval" in run_spec.name:
+                run_spec = replace(
+                    run_spec,
+                    name=run_spec.name,
+                    adapter_spec=replace(
+                        run_spec.adapter_spec,
+                        global_prefix="",
+                        global_suffix="",
+                    ),
+                )
 
         # For multiple choice
         if (

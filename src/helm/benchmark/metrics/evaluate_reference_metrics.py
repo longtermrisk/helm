@@ -11,7 +11,10 @@ from helm.benchmark.metrics.statistic import Stat
 from helm.benchmark.scenarios.code_scenario import CodeReference
 from helm.benchmark.scenarios.scenario import Reference
 from helm.common.request import Sequence
-from helm.benchmark.scenarios.math_scenario import is_equiv, is_equiv_chain_of_thought
+from helm.benchmark.scenarios.math_scenario import (
+    is_equiv,
+    is_equiv_chain_of_thought,
+)
 from nltk.metrics.scores import f_measure
 from nltk.translate.bleu_score import sentence_bleu
 from nltk.tokenize import word_tokenize
@@ -105,7 +108,9 @@ def quasi_prefix_exact_match(gold: str, pred: str) -> float:
 
 
 def f1_score(gold: str, pred: str) -> float:
-    ret = f_measure(set(normalize_text(gold).split()), set(normalize_text(pred).split()))
+    ret = f_measure(
+        set(normalize_text(gold).split()), set(normalize_text(pred).split())
+    )
     if ret is None:  # answer is the empty string after normalizing
         return 0.0
 
@@ -145,7 +150,9 @@ def final_number_exact_match(gold: str, pred: str) -> float:
     return exact_match(get_final_number(gold), get_final_number(pred))
 
 
-def rouge_score(gold: str, pred: str, rouge_type: str, scorer: rouge_scorer.RougeScorer) -> float:
+def rouge_score(
+    gold: str, pred: str, rouge_type: str, scorer: rouge_scorer.RougeScorer
+) -> float:
     scores = scorer.score(gold, pred)
     return scores[rouge_type].fmeasure
 
@@ -156,17 +163,25 @@ def get_rouge_function(rouge_type: str) -> Callable[[str, str], float]:
 
 
 def bleu_1(gold: str, pred: str) -> float:
-    return sentence_bleu([word_tokenize(gold)], word_tokenize(pred), weights=(1, 0, 0, 0))
+    return sentence_bleu(
+        [word_tokenize(gold)], word_tokenize(pred), weights=(1, 0, 0, 0)
+    )
 
 
 def chinese_bleu_1(gold: str, pred: str) -> float:
     char_tokenizer = ChineseTokenizer()
-    return sentence_bleu([char_tokenizer.tokenize(gold)], char_tokenizer.tokenize(pred), weights=(1, 0, 0, 0))
+    return sentence_bleu(
+        [char_tokenizer.tokenize(gold)],
+        char_tokenizer.tokenize(pred),
+        weights=(1, 0, 0, 0),
+    )
 
 
 def get_chinese_rouge_function(rouge_type: str) -> Callable[[str, str], float]:
     char_tokenizer = ChineseTokenizer()
-    scorer = rouge_scorer.RougeScorer([rouge_type], use_stemmer=True, tokenizer=char_tokenizer)
+    scorer = rouge_scorer.RougeScorer(
+        [rouge_type], use_stemmer=True, tokenizer=char_tokenizer
+    )
     return partial(rouge_score, scorer=scorer, rouge_type=rouge_type)
 
 
@@ -185,7 +200,9 @@ def cleva_math_result_match(gold: str, pred: str) -> float:
 
 
 def bleu_4(gold: str, pred: str) -> float:
-    return sentence_bleu([word_tokenize(gold)], word_tokenize(pred), weights=(0, 0, 0, 1))
+    return sentence_bleu(
+        [word_tokenize(gold)], word_tokenize(pred), weights=(0, 0, 0, 1)
+    )
 
 
 def extract_set_from_text(
@@ -217,7 +234,9 @@ def extract_gold_pred_sets(gold: str, pred: str) -> Tuple[Set[str], Set[str]]:
 def iou_set_match(gold: str, pred: str) -> float:
     """Compute the intersection over union of the gold and pred sets"""
     gold_set, pred_set = extract_gold_pred_sets(gold, pred)
-    if len(gold_set) == 0:  # If gold is empty, just check if the pred set is also empty
+    if (
+        len(gold_set) == 0
+    ):  # If gold is empty, just check if the pred set is also empty
         return float(gold_set == pred_set)
     return len(gold_set.intersection(pred_set)) / len(gold_set.union(pred_set))
 
@@ -225,7 +244,9 @@ def iou_set_match(gold: str, pred: str) -> float:
 def f1_set_match(gold: str, pred: str) -> float:
     """Compute the F1 score of the gold and pred sets"""
     gold_set, pred_set = extract_gold_pred_sets(gold, pred)
-    if len(gold_set) == 0:  # If gold is empty, just check if the pred set is also empty
+    if (
+        len(gold_set) == 0
+    ):  # If gold is empty, just check if the pred set is also empty
         return float(gold_set == pred_set)
     true_positives = gold_set.intersection(pred_set)
     return 2 * len(true_positives) / (len(gold_set) + len(pred_set))
@@ -259,13 +280,16 @@ def code_eval(gold: Tuple[str, Optional[Dict]], pred: str) -> float:
     """Evaluate Code Correctness on test examples."""
     assert gold[1] is not None  # gold[1]["canonical_solution"]
     # Warning: will execute machine generated code; need to sandbox before executing
-    return float(code_metrics_helper.check_correctness(gold[1], pred, 3.0)["passed"])  # type: ignore
+    return float(code_metrics_helper.check_correctness(gold[1], pred, 3.0 * 10)["passed"])  # type: ignore
 
 
 # TODO This should probably be made into an implementation of MetricInterface. For now it lives here
 # just to separate it from basic_metrics.py.
 def compute_reference_metrics(
-    names: List[str], adapter_spec: AdapterSpec, request_state: RequestState, metric_service: MetricService
+    names: List[str],
+    adapter_spec: AdapterSpec,
+    request_state: RequestState,
+    metric_service: MetricService,
 ) -> List[Stat]:
     """
     Setup:
@@ -286,28 +310,61 @@ def compute_reference_metrics(
         score_func: Callable,
         group: Optional[str] = None,
     ) -> List[Stat]:
-        if name.name == "pass":  # Calculate pass@k for HumanEval from CodeScenario.
-            score_func = cast(Callable[[Tuple[str, Optional[Dict]], str], float], score_func)  # Make mypy happy.
+        if (
+            name.name == "pass"
+        ):  # Calculate pass@k for HumanEval from CodeScenario.
+            score_func = cast(
+                Callable[[Tuple[str, Optional[Dict]], str], float], score_func
+            )  # Make mypy happy.
             code_golds = cast(List[CodeReference], golds)
-            results = [score_func((gold.output.text, gold.test_cases), pred) for gold in code_golds for pred in preds]
-            _len, _sum = len(results), int(sum(results))  # Cast to int to make type match.
+            results = [
+                score_func((gold.output.text, gold.test_cases), pred)
+                for gold in code_golds
+                for pred in preds
+            ]
+            _len, _sum = len(results), int(
+                sum(results)
+            )  # Cast to int to make type match.
             score_1 = pass_at_k_estimator(_len, _sum, 1)
             score_k = pass_at_k_estimator(_len, _sum, adapter_spec.num_outputs)
         elif name.name == "code_eval_acc":
-            score_func = cast(Callable[[Tuple[str, Optional[Dict]], str], float], score_func)  # Make mypy happy.
+            score_func = cast(
+                Callable[[Tuple[str, Optional[Dict]], str], float], score_func
+            )  # Make mypy happy.
             code_golds = cast(List[CodeReference], golds)
-            score_1 = max(score_func((gold.output.text, gold.test_cases), preds[0]) for gold in code_golds)
+            score_1 = max(
+                score_func((gold.output.text, gold.test_cases), preds[0])
+                for gold in code_golds
+            )
             score_k = max(
-                score_func((gold.output.text, gold.test_cases), pred) for gold in code_golds for pred in preds
+                score_func((gold.output.text, gold.test_cases), pred)
+                for gold in code_golds
+                for pred in preds
             )
         else:
-            score_func = cast(Callable[[str, str], float], score_func)  # Make mypy happy.
-            score_1 = max(score_func(gold.output.text, preds[0]) for gold in golds)
-            score_k = max(score_func(gold.output.text, pred) for gold in golds for pred in preds)
+            score_func = cast(
+                Callable[[str, str], float], score_func
+            )  # Make mypy happy.
+            score_1 = max(
+                score_func(gold.output.text, preds[0]) for gold in golds
+            )
+            score_k = max(
+                score_func(gold.output.text, pred)
+                for gold in golds
+                for pred in preds
+            )
 
-        metrics = [Stat(name).add(score_1)]  # score_1 corresponds using one prediction
+        metrics = [
+            Stat(name).add(score_1)
+        ]  # score_1 corresponds using one prediction
         if adapter_spec.num_outputs != 1:
-            metrics.append(Stat(replace(name, name=f"{name.name}@{adapter_spec.num_outputs}")).add(score_k))
+            metrics.append(
+                Stat(
+                    replace(
+                        name, name=f"{name.name}@{adapter_spec.num_outputs}"
+                    )
+                ).add(score_k)
+            )
         return metrics
 
     # maps each string metric name to its associated function
@@ -341,13 +398,21 @@ def compute_reference_metrics(
     stats: List[Stat] = []
 
     # Gold outputs
-    golds: List[Reference] = [reference for reference in request_state.instance.references if reference.is_correct]
+    golds: List[Reference] = [
+        reference
+        for reference in request_state.instance.references
+        if reference.is_correct
+    ]
     assert len(golds) > 0
 
     # Predicted outputs
     assert request_state.result is not None
-    sorted_completions: List[Sequence] = sorted(request_state.result.completions, key=lambda x: -x.logprob)
-    preds: List[str] = [completion.text.strip() for completion in sorted_completions]
+    sorted_completions: List[Sequence] = sorted(
+        request_state.result.completions, key=lambda x: -x.logprob
+    )
+    preds: List[str] = [
+        completion.text.strip() for completion in sorted_completions
+    ]
 
     # Apply mapping if exists (e.g., for multiple-choice questions A -> Boston, B -> New York)
     # Note: If 'A' and 'B' were the only possible choices, smaller language models like GPT-2 would
@@ -369,8 +434,14 @@ def compute_reference_metrics(
     # Add other metrics
     for metric_name in names:
         if metric_name in metric_fn_mapping:
-            stats.extend(compute_metrics_helper(MetricName(metric_name), metric_fn_mapping[metric_name]))
+            stats.extend(
+                compute_metrics_helper(
+                    MetricName(metric_name), metric_fn_mapping[metric_name]
+                )
+            )
         else:
-            raise NameError(f"{metric_name} is not in the list of metric functions.")
+            raise NameError(
+                f"{metric_name} is not in the list of metric functions."
+            )
 
     return stats

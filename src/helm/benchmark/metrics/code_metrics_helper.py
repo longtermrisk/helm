@@ -638,6 +638,8 @@ def check_correctness(
     if not result:
         result.append("timed out")
 
+    print("check_correctness result: ", result)
+
     return dict(
         task_id=problem["task_id"],
         passed=result[0] == "passed",

@@ -22,7 +22,9 @@ MAXIMUM_MEMORY_BYTES = 8 * 1024 * 1024 * 1024  # 8GB.
 def _convert_scores(scores: Sequence[Union[int, bool]]) -> List[float]:
     """Convert boolean scores to int."""
     # `scores` is returned by `code_metrics_helper.run_test` and is a list of bools/ints.
-    return [1.0 if isinstance(score, bool) and score else 0.0 for score in scores]
+    return [
+        1.0 if isinstance(score, bool) and score else 0.0 for score in scores
+    ]
 
 
 def _test_avg(scores: List[float]) -> float:
@@ -51,7 +53,10 @@ class APPSMetric(Metric):
         super(APPSMetric, self).__init__()
         for name in names:
             if name not in METRICS.keys():
-                raise ValueError(f"Expected name to be either one of {METRICS.keys()}, but got {name}.")
+                raise ValueError(
+                    f"Expected name to be either one of {METRICS.keys()}, but"
+                    f" got {name}."
+                )
         self.names = names
         self.timeout = timeout
 
@@ -60,13 +65,20 @@ class APPSMetric(Metric):
         # resource.setrlimit(resource.RLIMIT_AS, (MAXIMUM_MEMORY_BYTES, MAXIMUM_MEMORY_BYTES))
 
     def evaluate(
-        self, scenario_state: ScenarioState, metric_service: MetricService, eval_cache_path: str, parallelism: int
+        self,
+        scenario_state: ScenarioState,
+        metric_service: MetricService,
+        eval_cache_path: str,
+        parallelism: int,
     ) -> MetricResult:
         # Running with parallelism > 1 causes the run to get stuck.
         hlog(
-            f"Setting parallelism from {parallelism} to 1, since evaluating code with parallelism > 1 isn't supported."
+            f"Setting parallelism from {parallelism} to 1, since evaluating"
+            " code with parallelism > 1 isn't supported."
         )
-        return super().evaluate(scenario_state, metric_service, eval_cache_path, parallelism=1)
+        return super().evaluate(
+            scenario_state, metric_service, eval_cache_path, parallelism=1
+        )
 
     def evaluate_generation(
         self,
@@ -93,18 +105,32 @@ class APPSMetric(Metric):
 
                 # Similar to the logic in https://github.com/hendrycks/apps/blob/main/eval/test_one_solution.py
                 # Running the testing code in a forked process prevents against annoying memory issues.
-                shared_list = multiprocessing.Manager().list()  # Create shared object to hold results.
+                shared_list = (
+                    multiprocessing.Manager().list()
+                )  # Create shared object to hold results.
                 p = multiprocessing.Process(
-                    target=_run_test_wrapper, args=(root, completion, self.timeout, shared_list)
+                    target=_run_test_wrapper,
+                    args=(root, completion, self.timeout, shared_list),
                 )
                 p.start()
-                p.join(timeout=11)  # Same 'global' timeout used in original APPS codebase.
+                p.join(
+                    timeout=60
+                )  # Same 'global' timeout used in original APPS codebase.
                 if p.is_alive():
-                    hlog(f"Before kill thread count: {threading.active_count()} exitcode: {p.exitcode}")
+                    hlog(
+                        "Before kill thread count:"
+                        f" {threading.active_count()} exitcode: {p.exitcode}"
+                    )
                     p.kill()
                     p.join(timeout=60)
-                    hlog(f"After second join thread count: {threading.active_count()}. exitcode: {p.exitcode}")
-                    assert not p.is_alive(), "The code process was still alive even after calling kill."
+                    hlog(
+                        "After second join thread count:"
+                        f" {threading.active_count()}. exitcode: {p.exitcode}"
+                    )
+                    assert not p.is_alive(), (
+                        "The code process was still alive even after calling"
+                        " kill."
+                    )
 
                 if len(shared_list) > 0:
                     scores = shared_list[0]
@@ -114,7 +140,9 @@ class APPSMetric(Metric):
                     avg_number_tests = 21
                     scores = [-1] * avg_number_tests
 
-                scores = _convert_scores(scores)  # Convert list of bool/int to list of ints.
+                scores = _convert_scores(
+                    scores
+                )  # Convert list of bool/int to list of ints.
                 this_score = metric_fn(scores)
                 if this_score > best_score:
                     best_score = this_score

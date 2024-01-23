@@ -329,6 +329,10 @@ class InContextLearningAdapter(Adapter, ABC):
             result += self.adapter_spec.output_prefix.rstrip()
 
         if "{instance.input.text}" in result:
+            assert self.adapter_spec.max_train_instances == 0, (
+                'Cannot use "{instance.input.text}" in prompt when'
+                " max_train_instances > 0"
+            )
             result = result.replace(
                 "{instance.input.text}", str(instance.input.text).strip()
             )

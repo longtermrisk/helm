@@ -287,6 +287,13 @@ def clean_code_completion(completion: str):
         )
     ]
 
+    # remove comment surrounded by """ """ if at the start of the completion
+    content = "\n".join(lines).strip()
+    if content.startswith('"""'):
+        end = content.find('"""', 3)
+        if end != -1:
+            lines = content[end + 3 :].split("\n")
+
     if len(lines) > 0 and not lines[0].startswith("    "):
         lines[0] = "    " + lines[0]
 
