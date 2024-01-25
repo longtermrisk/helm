@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import traceback
 from typing import Any, Dict, List, Optional
 import json
@@ -29,6 +31,7 @@ from helm.common.tokenization_request import (
 )
 from helm.proxy.tokenizers.tokenizer import Tokenizer
 from .client import CachingClient, truncate_sequence
+from ...common.clr_constants import log_api_request, ANTHROPIC_CLIENT_LOG_FILE
 
 try:
     import anthropic
@@ -225,6 +228,10 @@ class AnthropicClient(CachingClient):
                 completion, request, print_warning=True
             )
             completions.append(sequence)
+
+        log_api_request(
+            ANTHROPIC_CLIENT_LOG_FILE, request, raw_request, response
+        )
 
         return RequestResult(
             success=True,

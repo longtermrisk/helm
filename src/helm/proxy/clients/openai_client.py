@@ -1,4 +1,8 @@
 # mypy: check_untyped_defs = False
+from datetime import datetime
+
+import json
+
 import traceback
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, cast
@@ -26,6 +30,7 @@ from .client import (
     truncate_sequence,
     generate_uid_for_multimodal_prompt,
 )
+from ...common.clr_constants import log_api_request, OPENAI_CLIENT_LOG_FILE
 
 try:
     import openai
@@ -335,6 +340,8 @@ class OpenAIClient(CachingClient):
                     ),
                 )
                 completions.append(completion)
+
+        log_api_request(OPENAI_CLIENT_LOG_FILE, request, raw_request, response)
 
         return RequestResult(
             success=True,

@@ -24,10 +24,6 @@ from helm.benchmark.config_registry import (
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec
 from helm.benchmark import heim_run_specs  # noqa
 from helm.benchmark import vlm_run_specs  # noqa
-from helm.common.clr_contrib import (
-    USE_SINGLE_STEP_SG_IMPLEMENTATION,
-    USE_THREE_STEPS_SG_IMPLEMENTATION,
-)
 from helm.benchmark.executor import ExecutionSpec
 from helm.benchmark.runner import (
     Runner,
@@ -37,6 +33,8 @@ from helm.benchmark.runner import (
 )
 from helm.benchmark.run_specs import construct_run_specs
 import helm.common.clr_contrib as clr_contrib
+
+import helm.common.clr_constants as clr_constants
 
 
 def run_entries_to_run_specs(
@@ -87,7 +85,7 @@ def run_entries_to_run_specs(
                     adapter_spec, num_train_trials=num_train_trials
                 )
 
-            if clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION:
+            if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION:
                 adapter_spec = replace(
                     adapter_spec,
                     instructions=clr_contrib.SINGLE_STEP_PROMPT
@@ -366,12 +364,17 @@ def main():
     args = get_args_from_parser()
 
     # Added by Maxime Riche for sanity check
-    if USE_SINGLE_STEP_SG_IMPLEMENTATION:
-        assert args.suite == "wt_1_step_SG", f"Wrong suite name: {args.suite}"
-    elif USE_THREE_STEPS_SG_IMPLEMENTATION:
-        assert args.suite == "wt_3_steps_SG", f"Wrong suite name: {args.suite}"
-    else:
-        assert args.suite == "wtout_SG", f"Wrong suite name: {args.suite}"
+    if args.suite != "tmp":
+        if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION:
+            assert (
+                args.suite == "wt_1_step_SG"
+            ), f"Wrong suite name: {args.suite}"
+        elif clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION:
+            assert (
+                args.suite == "wt_3_steps_SG"
+            ), f"Wrong suite name: {args.suite}"
+        else:
+            assert args.suite == "wtout_SG", f"Wrong suite name: {args.suite}"
 
     validate_args(args)
 

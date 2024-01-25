@@ -1,3 +1,5 @@
+import json
+
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
@@ -91,6 +93,30 @@ class Request:
         Example: 'openai/davinci' => 'davinci'"""
         return self.model.split("/")[1]
 
+    def __repr__(self):
+        properties = {
+            "model_deployment": self.model_deployment,
+            "model": self.model,
+            "embedding": self.embedding,
+            "prompt": self.prompt,
+            "temperature": self.temperature,
+            "num_completions": self.num_completions,
+            "top_k_per_token": self.top_k_per_token,
+            "max_tokens": self.max_tokens,
+            "stop_sequences": self.stop_sequences,
+            "echo_prompt": self.echo_prompt,
+            "top_p": self.top_p,
+            "presence_penalty": self.presence_penalty,
+            "frequency_penalty": self.frequency_penalty,
+            "random": self.random,
+            "messages": self.messages,
+            "multimodal_prompt": self.multimodal_prompt,
+            "image_generation_parameters": self.image_generation_parameters,
+            "model_host": self.model_host,
+            "model_engine": self.model_engine,
+        }
+        return f"Request({json.dumps(properties, indent=2)})"
+
 
 @dataclass(frozen=True)
 class Token:
@@ -111,12 +137,21 @@ class Token:
     top_logprobs: Dict[str, float]
 
     def render_lines(self) -> List[str]:
-        top_logprobs_entries = sorted(self.top_logprobs.items(), key=lambda entry: -entry[1])
+        top_logprobs_entries = sorted(
+            self.top_logprobs.items(), key=lambda entry: -entry[1]
+        )
         top_logprobs_str = (
-            "{" + ", ".join(f"{format_text(text)}: {logprob}" for text, logprob in top_logprobs_entries) + "}"
+            "{"
+            + ", ".join(
+                f"{format_text(text)}: {logprob}"
+                for text, logprob in top_logprobs_entries
+            )
+            + "}"
         )
         return [
-            f"{format_text(self.text)} logprob={self.logprob} top_logprobs={top_logprobs_str}",
+            (
+                f"{format_text(self.text)} logprob={self.logprob} top_logprobs={top_logprobs_str}"
+            ),
         ]
 
 
@@ -140,7 +175,11 @@ class Sequence:
     multimodal_content: Optional[MultimediaObject] = None
 
     def __add__(self, other: "Sequence") -> "Sequence":
-        return Sequence(self.text + other.text, self.logprob + other.logprob, self.tokens + other.tokens)
+        return Sequence(
+            self.text + other.text,
+            self.logprob + other.logprob,
+            self.tokens + other.tokens,
+        )
 
     def render_lines(self) -> List[str]:
         result = [
@@ -234,7 +273,9 @@ EMBEDDING_UNAVAILABLE_REQUEST_RESULT = RequestResult(
 )
 
 
-def wrap_request_time(compute: Callable[[], Dict[str, Any]]) -> Callable[[], Any]:
+def wrap_request_time(
+    compute: Callable[[], Dict[str, Any]]
+) -> Callable[[], Any]:
     """Return a version of `compute` that puts `request_time` into its output."""
 
     def wrapped_compute():

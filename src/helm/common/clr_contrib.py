@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 from dataclasses import replace
 
@@ -12,6 +11,12 @@ from helm.benchmark.executor import Executor
 from helm.common.request import RequestResult
 
 import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
+from helm.common.clr_constants import (
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
+    log_api_request,
+    pick_right_log_file,
+)
 from surrogate_goal_demo.shared.external_loading_prompts import (
     load_single_step_sg_implementation_prompt,
     load_three_steps_sg_implementation_prompts,
@@ -19,12 +24,6 @@ from surrogate_goal_demo.shared.external_loading_prompts import (
 )
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
-
-USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = False
-assert not (
-    USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
-)
 
 
 SINGLE_STEP_PROMPT = (
@@ -91,6 +90,14 @@ class MultiStepExecutor(Executor):
             self.execution_spec.auth, new_request
         )
         print("completions:", [seq.text for seq in result_step_1.completions])
+        file = pick_right_log_file(new_request.model)
+        log_api_request(
+            file,
+            new_request,
+            result_step_1,
+            raw_request={},
+            prefix="Detection step (3-steps SG)",
+        )
         print("========= END SG implementation step 1 =============")
         return self.extract_detection_need_to_rewrite(result_step_1)
 
@@ -185,6 +192,14 @@ class MultiStepExecutor(Executor):
             self.execution_spec.auth, new_request
         )
         print("completions:", [seq.text for seq in result_step_2.completions])
+        file = pick_right_log_file(new_request.model)
+        log_api_request(
+            file,
+            new_request,
+            result_step_2,
+            raw_request={},
+            prefix="Translation step (3-steps SG)",
+        )
         print("========= END SG implementation step 2 =============")
         rewritten_last_message = self.extract_rewritten_prompt(result_step_2)
         return rewritten_last_message

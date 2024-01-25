@@ -20,6 +20,7 @@ from helm.common.general import (
 )
 from helm.common.hierarchical_logger import hlog, htrack_block
 from helm.common.cache import cache_stats
+
 from .augmentations.data_augmenter import DataAugmenterSpec
 from .scenarios.scenario import (
     EVAL_SPLITS,
@@ -50,6 +51,7 @@ from .metrics.metric import (
 )
 from .window_services.tokenizer_service import TokenizerService
 import helm.common.clr_contrib as clr_contrib
+import helm.common.clr_constants as clr_constants
 
 
 LATEST_SYMLINK: str = "latest"
@@ -218,7 +220,7 @@ class Runner:
         skip_completed_runs: bool,
         exit_on_error: bool,
     ):
-        if clr_contrib.USE_THREE_STEPS_SG_IMPLEMENTATION:
+        if clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION:
             self.executor = clr_contrib.MultiStepExecutor(execution_spec)
         else:
             self.executor = Executor(execution_spec)

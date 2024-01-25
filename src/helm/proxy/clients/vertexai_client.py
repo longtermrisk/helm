@@ -1,3 +1,9 @@
+import json
+
+from datetime import datetime
+
+import logging
+
 import requests
 from abc import ABC, abstractmethod
 from threading import Lock
@@ -6,19 +12,46 @@ from typing import Any, Dict, List, Union
 from helm.common.cache import CacheConfig
 from helm.common.media_object import TEXT_TYPE
 from helm.common.optional_dependencies import handle_module_not_found_error
-from helm.common.request import wrap_request_time, Request, RequestResult, Sequence, Token
+from helm.common.request import (
+    wrap_request_time,
+    Request,
+    RequestResult,
+    Sequence,
+    Token,
+)
 from helm.common.tokenization_request import (
     TokenizationRequest,
     TokenizationRequestResult,
 )
 from helm.proxy.tokenizers.tokenizer import Tokenizer
-from .client import CachingClient, truncate_sequence, generate_uid_for_multimodal_prompt
+from .client import (
+    CachingClient,
+    truncate_sequence,
+    generate_uid_for_multimodal_prompt,
+)
+from ...common.clr_constants import (
+    log_api_request,
+    VERTEXAI_CLIENT_TEXT_LOG_FILE,
+    VERTEXAI_CLIENT_CHAT_LOG_FILE,
+)
 
 try:
     import vertexai
-    from vertexai.language_models import TextGenerationModel, TextGenerationResponse  # PaLM2
-    from vertexai.preview.generative_models import GenerativeModel, GenerationResponse, Candidate, Part, Image  # Gemini
-    from google.cloud.aiplatform_v1beta1.types import SafetySetting, HarmCategory
+    from vertexai.language_models import (
+        TextGenerationModel,
+        TextGenerationResponse,
+    )  # PaLM2
+    from vertexai.preview.generative_models import (
+        GenerativeModel,
+        GenerationResponse,
+        Candidate,
+        Part,
+        Image,
+    )  # Gemini
+    from google.cloud.aiplatform_v1beta1.types import (
+        SafetySetting,
+        HarmCategory,
+    )
 except ModuleNotFoundError as e:
     handle_module_not_found_error(e, ["google"])
 
@@ -31,7 +64,12 @@ class VertexAIClient(CachingClient, ABC):
     """Client for Vertex AI models"""
 
     def __init__(
-        self, tokenizer: Tokenizer, tokenizer_name: str, cache_config: CacheConfig, project_id: str, location: str
+        self,
+        tokenizer: Tokenizer,
+        tokenizer_name: str,
+        cache_config: CacheConfig,
+        project_id: str,
+        location: str,
     ) -> None:
         super().__init__(cache_config=cache_config)
         self.project_id = project_id
@@ -40,8 +78,12 @@ class VertexAIClient(CachingClient, ABC):
         self.tokenizer_name = tokenizer_name
 
         # VertexAI's default safety filter is overly sensitive, so we disable it.
-        self.safety_settings: Dict[HarmCategory, SafetySetting.HarmBlockThreshold] = {
-            harm_category: SafetySetting.HarmBlockThreshold(SafetySetting.HarmBlockThreshold.BLOCK_NONE)
+        self.safety_settings: Dict[
+            HarmCategory, SafetySetting.HarmBlockThreshold
+        ] = {
+            harm_category: SafetySetting.HarmBlockThreshold(
+                SafetySetting.HarmBlockThreshold.BLOCK_NONE
+            )
             for harm_category in iter(HarmCategory)
         }
 
@@ -85,7 +127,9 @@ class VertexAITextClient(VertexAIClient):
                 response = model.predict(request.prompt, **parameters)
                 candidates: List[TextGenerationResponse] = response.candidates
                 response_dict = {
-                    "predictions": [{"text": completion.text for completion in candidates}],
+                    "predictions": [
+                        {"text": completion.text for completion in candidates}
+                    ],
                 }  # TODO: Extract more information from the response
                 return response_dict
 
@@ -101,20 +145,35 @@ class VertexAITextClient(VertexAIClient):
                 request,
             )
 
-            response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
+            response, cached = self.cache.get(
+                cache_key, wrap_request_time(do_it)
+            )
         except (requests.exceptions.RequestException, AssertionError) as e:
             error: str = f"VertexAITextClient error: {e}"
-            return RequestResult(success=False, cached=False, error=error, completions=[], embedding=[])
+            return RequestResult(
+                success=False,
+                cached=False,
+                error=error,
+                completions=[],
+                embedding=[],
+            )
 
         for prediction in response["predictions"]:
+            logging.info(prediction)
             response_text = prediction["text"]
 
             # The Python SDK does not support echo
             # TODO #2084: Add support for echo.
-            text: str = request.prompt + response_text if request.echo_prompt else response_text
+            text: str = (
+                request.prompt + response_text
+                if request.echo_prompt
+                else response_text
+            )
 
-            tokenization_result: TokenizationRequestResult = self.tokenizer.tokenize(
-                TokenizationRequest(text, tokenizer=self.tokenizer_name)
+            tokenization_result: TokenizationRequestResult = (
+                self.tokenizer.tokenize(
+                    TokenizationRequest(text, tokenizer=self.tokenizer_name)
+                )
             )
 
             # TODO #2085: Add support for log probs.
@@ -124,12 +183,20 @@ class VertexAITextClient(VertexAIClient):
             # Python SDK reference:
             # https://github.com/googleapis/python-aiplatform/blob/beae48f63e40ea171c3f1625164569e7311b8e5a/vertexai/language_models/_language_models.py#L868
             tokens: List[Token] = [
-                Token(text=str(text), logprob=0, top_logprobs={}) for text in tokenization_result.raw_tokens
+                Token(text=str(text), logprob=0, top_logprobs={})
+                for text in tokenization_result.raw_tokens
             ]
 
             completion = Sequence(text=response_text, logprob=0, tokens=tokens)
-            sequence = truncate_sequence(completion, request, print_warning=True)
+            sequence = truncate_sequence(
+                completion, request, print_warning=True
+            )
             completions.append(sequence)
+
+        raw_request = {"prompt": request.prompt, **parameters}
+        log_api_request(
+            VERTEXAI_CLIENT_TEXT_LOG_FILE, request, raw_request, response
+        )
 
         return RequestResult(
             success=True,
@@ -167,15 +234,26 @@ class VertexAIChatClient(VertexAIClient):
             contents = []
             for media_object in request.multimodal_prompt.media_objects:
                 if media_object.is_type("image") and media_object.location:
-                    contents.append(Part.from_image(Image.load_from_file(media_object.location)))
+                    contents.append(
+                        Part.from_image(
+                            Image.load_from_file(media_object.location)
+                        )
+                    )
                 elif media_object.is_type(TEXT_TYPE):
                     if media_object.text is None:
-                        raise ValueError("MediaObject of text type has missing text field value")
+                        raise ValueError(
+                            "MediaObject of text type has missing text field"
+                            " value"
+                        )
                     contents.append(media_object.text)
                 else:
-                    raise ValueError(f"Unrecognized MediaObject type {media_object.type}")
+                    raise ValueError(
+                        f"Unrecognized MediaObject type {media_object.type}"
+                    )
 
-            prompt_key = generate_uid_for_multimodal_prompt(request.multimodal_prompt)
+            prompt_key = generate_uid_for_multimodal_prompt(
+                request.multimodal_prompt
+            )
 
         parameters = {
             "temperature": request.temperature,
@@ -209,11 +287,15 @@ class VertexAIChatClient(VertexAIClient):
                 # chat: ChatSession = model.start_chat()
                 # See: https://github.com/googleapis/python-aiplatform/blob/e8c505751b10a9dc91ae2e0d6d13742d2abf945c/vertexai/generative_models/_generative_models.py#L812  # noqa: E501
                 response: GenerationResponse = model.generate_content(
-                    contents, generation_config=parameters, safety_settings=self.safety_settings
+                    contents,
+                    generation_config=parameters,
+                    safety_settings=self.safety_settings,
                 )
                 candidates: List[Candidate] = response.candidates
                 response_dict = {
-                    "predictions": [{"text": completion.text for completion in candidates}],
+                    "predictions": [
+                        {"text": completion.text for completion in candidates}
+                    ],
                 }  # TODO: Extract more information from the response
                 return response_dict
 
@@ -229,30 +311,53 @@ class VertexAIChatClient(VertexAIClient):
                 request,
             )
 
-            response, cached = self.cache.get(cache_key, wrap_request_time(do_it))
+            response, cached = self.cache.get(
+                cache_key, wrap_request_time(do_it)
+            )
         except (requests.exceptions.RequestException, AssertionError) as e:
             error: str = f"VertexAITextClient error: {e}"
-            return RequestResult(success=False, cached=False, error=error, completions=[], embedding=[])
+            return RequestResult(
+                success=False,
+                cached=False,
+                error=error,
+                completions=[],
+                embedding=[],
+            )
 
         for prediction in response["predictions"]:
+            logging.info(prediction)
             response_text = prediction["text"]
 
             # The Python SDK does not support echo
             # TODO #2084: Add support for echo.
-            text: str = request.prompt + response_text if request.echo_prompt else response_text
+            text: str = (
+                request.prompt + response_text
+                if request.echo_prompt
+                else response_text
+            )
 
-            tokenization_result: TokenizationRequestResult = self.tokenizer.tokenize(
-                TokenizationRequest(text, tokenizer=self.tokenizer_name)
+            tokenization_result: TokenizationRequestResult = (
+                self.tokenizer.tokenize(
+                    TokenizationRequest(text, tokenizer=self.tokenizer_name)
+                )
             )
 
             # TODO #2085: Add support for log probs.
             tokens: List[Token] = [
-                Token(text=str(text), logprob=0, top_logprobs={}) for text in tokenization_result.raw_tokens
+                Token(text=str(text), logprob=0, top_logprobs={})
+                for text in tokenization_result.raw_tokens
             ]
 
             completion = Sequence(text=response_text, logprob=0, tokens=tokens)
-            sequence = truncate_sequence(completion, request, print_warning=True)
+            sequence = truncate_sequence(
+                completion, request, print_warning=True
+            )
             completions.append(sequence)
+
+        raw_request = {"prompt": request.prompt, **parameters}
+        log_api_request(
+            VERTEXAI_CLIENT_CHAT_LOG_FILE, request, raw_request, response
+        )
 
         return RequestResult(
             success=True,
