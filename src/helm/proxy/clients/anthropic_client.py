@@ -31,7 +31,12 @@ from helm.common.tokenization_request import (
 )
 from helm.proxy.tokenizers.tokenizer import Tokenizer
 from .client import CachingClient, truncate_sequence
-from ...common.clr_constants import log_api_request, ANTHROPIC_CLIENT_LOG_FILE
+from ...common.clr_constants import (
+    log_api_request,
+    ANTHROPIC_CLIENT_LOG_FILE,
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
+)
 
 try:
     import anthropic
@@ -157,6 +162,12 @@ class AnthropicClient(CachingClient):
                 cache_key = CachingClient.make_cache_key(
                     {
                         "completion_index": completion_index,
+                        "USE_SINGLE_STEP_SG_IMPLEMENTATION": (
+                            USE_SINGLE_STEP_SG_IMPLEMENTATION
+                        ),
+                        "USE_THREE_STEPS_SG_IMPLEMENTATION": (
+                            USE_THREE_STEPS_SG_IMPLEMENTATION
+                        ),
                         **raw_request,
                     },
                     request,
@@ -230,7 +241,10 @@ class AnthropicClient(CachingClient):
             completions.append(sequence)
 
         log_api_request(
-            ANTHROPIC_CLIENT_LOG_FILE, request, raw_request, response
+            ANTHROPIC_CLIENT_LOG_FILE,
+            request=request,
+            raw_request=raw_request,
+            response=response,
         )
 
         return RequestResult(
@@ -518,6 +532,12 @@ class AnthropicLegacyClient(CachingClient):
                         "engine": request.model_engine,
                         "echo_prompt": request.echo_prompt,
                         "completion_index": completion_index,
+                        "USE_SINGLE_STEP_SG_IMPLEMENTATION": (
+                            USE_SINGLE_STEP_SG_IMPLEMENTATION
+                        ),
+                        "USE_THREE_STEPS_SG_IMPLEMENTATION": (
+                            USE_THREE_STEPS_SG_IMPLEMENTATION
+                        ),
                         **raw_request,
                     },
                     request,

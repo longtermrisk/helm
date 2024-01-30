@@ -5,8 +5,8 @@ from datetime import datetime
 from helm.common.request import Request
 from helm.common.request import RequestResult
 
-USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = True
+USE_SINGLE_STEP_SG_IMPLEMENTATION = True
+USE_THREE_STEPS_SG_IMPLEMENTATION = False
 assert not (
     USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
 )
@@ -17,7 +17,7 @@ VERTEXAI_CLIENT_TEXT_LOG_FILE = "vertexai_client_text.log"
 VERTEXAI_CLIENT_CHAT_LOG_FILE = "vertexai_client_chat.log"
 
 
-def log_api_request(file, request, response, raw_request, prefix=None):
+def log_api_request(file, *, request, response, raw_request, prefix=None):
     response = copy.deepcopy(response)
     request = copy.deepcopy(request)
     raw_request = copy.deepcopy(raw_request)

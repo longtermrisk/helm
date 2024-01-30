@@ -30,7 +30,12 @@ from .client import (
     truncate_sequence,
     generate_uid_for_multimodal_prompt,
 )
-from ...common.clr_constants import log_api_request, OPENAI_CLIENT_LOG_FILE
+from ...common.clr_constants import (
+    log_api_request,
+    OPENAI_CLIENT_LOG_FILE,
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
+)
 
 try:
     import openai
@@ -74,7 +79,18 @@ class OpenAIClient(CachingClient):
         openai.api_base = self.api_base
 
     def _get_cache_key(self, raw_request, request):
-        cache_key = CachingClient.make_cache_key(raw_request, request)
+        cache_key = CachingClient.make_cache_key(
+            {
+                "USE_SINGLE_STEP_SG_IMPLEMENTATION": (
+                    USE_SINGLE_STEP_SG_IMPLEMENTATION
+                ),
+                "USE_THREE_STEPS_SG_IMPLEMENTATION": (
+                    USE_THREE_STEPS_SG_IMPLEMENTATION
+                ),
+                **raw_request,
+            },
+            request,
+        )
         if is_vlm(request.model):
             assert request.multimodal_prompt is not None
             prompt_key: str = generate_uid_for_multimodal_prompt(
@@ -341,7 +357,12 @@ class OpenAIClient(CachingClient):
                 )
                 completions.append(completion)
 
-        log_api_request(OPENAI_CLIENT_LOG_FILE, request, raw_request, response)
+        log_api_request(
+            OPENAI_CLIENT_LOG_FILE,
+            request=request,
+            raw_request=raw_request,
+            response=response,
+        )
 
         return RequestResult(
             success=True,

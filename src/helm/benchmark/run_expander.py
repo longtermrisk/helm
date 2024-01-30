@@ -17,7 +17,9 @@ from helm.benchmark.model_metadata_registry import (
 )
 from helm.benchmark.adaptation.adapters.adapter_factory import ADAPT_GENERATION
 from helm.common.general import handle_module_not_found_error
-from helm.benchmark.model_deployment_registry import get_model_names_with_tokenizer
+from helm.benchmark.model_deployment_registry import (
+    get_model_names_with_tokenizer,
+)
 from .runner import RunSpec
 from helm.benchmark.adaptation.adapter_spec import AdapterSpec, Substitution
 from .augmentations.perturbation import PerturbationSpec
@@ -59,8 +61,12 @@ class ReplaceValueRunExpander(RunExpander):
         return [
             replace(
                 run_spec,
-                name=f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={sanitize(value)}",
-                adapter_spec=replace(run_spec.adapter_spec, **{self.name: value}),
+                name=(
+                    f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={sanitize(value)}"
+                ),
+                adapter_spec=replace(
+                    run_spec.adapter_spec, **{self.name: value}
+                ),
             )
             for value in self.values
         ]
@@ -86,13 +92,20 @@ class InstructionsRunExpander(RunExpander):
         elif self.value == "expert":
             adapter_spec = replace(
                 adapter_spec,
-                instructions="I am an expert AI assistant who is here to help you with the following. "
+                instructions=(
+                    "I am an expert AI assistant who is here to help you with"
+                    " the following. "
+                )
                 + adapter_spec.instructions,
             )
         else:
             raise Exception("Unknown value: {self.value}")
         return [
-            replace(run_spec, name=f"{run_spec.name},{self.name}={self.value}", adapter_spec=adapter_spec),
+            replace(
+                run_spec,
+                name=f"{run_spec.name},{self.name}={self.value}",
+                adapter_spec=adapter_spec,
+            ),
         ]
 
 
@@ -118,9 +131,15 @@ class PromptRunExpander(RunExpander):
                 stop_sequences=['".'],
             )
         elif self.value == "question_answer":
-            adapter_spec = replace(adapter_spec, input_prefix="Question: ", output_prefix="Answer: ")
+            adapter_spec = replace(
+                adapter_spec,
+                input_prefix="Question: ",
+                output_prefix="Answer: ",
+            )
         elif self.value == "qa":
-            adapter_spec = replace(adapter_spec, input_prefix="Q: ", output_prefix="A: ")
+            adapter_spec = replace(
+                adapter_spec, input_prefix="Q: ", output_prefix="A: "
+            )
         elif self.value == "input_output_html":
             adapter_spec = replace(
                 adapter_spec,
@@ -130,9 +149,13 @@ class PromptRunExpander(RunExpander):
                 output_suffix="</output>\n",
             )
         elif self.value == "input_output":
-            adapter_spec = replace(adapter_spec, input_prefix="Input: ", output_prefix="Output: ")
+            adapter_spec = replace(
+                adapter_spec, input_prefix="Input: ", output_prefix="Output: "
+            )
         elif self.value == "i_o":
-            adapter_spec = replace(adapter_spec, input_prefix="I: ", output_prefix="O: ")
+            adapter_spec = replace(
+                adapter_spec, input_prefix="I: ", output_prefix="O: "
+            )
         else:
             raise Exception("Unknown value: {self.value}")
         return [
@@ -204,7 +227,11 @@ class StopRunExpander(RunExpander):
             replace(
                 run_spec,
                 name=f"{run_spec.name},{self.name}={self.value}",
-                adapter_spec=replace(run_spec.adapter_spec, instance_prefix=f"{stop}\n\n", stop_sequences=[stop]),
+                adapter_spec=replace(
+                    run_spec.adapter_spec,
+                    instance_prefix=f"{stop}\n\n",
+                    stop_sequences=[stop],
+                ),
             ),
         ]
 
@@ -229,7 +256,9 @@ class AddToStopRunExpander(RunExpander):
                 run_spec,
                 name=run_spec.name,
                 adapter_spec=replace(
-                    run_spec.adapter_spec, stop_sequences=run_spec.adapter_spec.stop_sequences + [self.value]
+                    run_spec.adapter_spec,
+                    stop_sequences=run_spec.adapter_spec.stop_sequences
+                    + [self.value],
                 ),
             ),
         ]
@@ -253,7 +282,9 @@ class GlobalPrefixRunExpander(RunExpander):
             replace(
                 run_spec,
                 name=f"{run_spec.name},{self.name}={self.value}",
-                adapter_spec=replace(run_spec.adapter_spec, global_prefix=prefix),
+                adapter_spec=replace(
+                    run_spec.adapter_spec, global_prefix=prefix
+                ),
             )
         ]
 
@@ -270,7 +301,8 @@ IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX = (
 )
 
 IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX = (
-    "Please provide the output to this last example. " + "It is critical to follow the format of the preceding outputs!"
+    "Please provide the output to this last example. "
+    + "It is critical to follow the format of the preceding outputs!"
 )
 
 
@@ -291,18 +323,43 @@ class AnthropicRunExpander(RunExpander):
         except ModuleNotFoundError as e:
             handle_module_not_found_error(e, ["anthropic"])
 
+        if (
+            run_spec.adapter_spec.max_train_instances is not None
+            and run_spec.adapter_spec.max_train_instances > 0
+        ):
+            global_prefix = (
+                anthropic.HUMAN_PROMPT
+                + run_spec.adapter_spec.global_prefix.strip()
+                + "\n\n"
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX
+                + "\n\n"
+            )
+            global_suffix = (
+                "\n\n"
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
+                + anthropic.AI_PROMPT
+                + " "
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
+        else:
+            global_prefix = (
+                anthropic.HUMAN_PROMPT + run_spec.adapter_spec.global_prefix
+            )
+            global_suffix = (
+                anthropic.AI_PROMPT
+                + " "
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
         return [
             replace(
                 run_spec,
                 name=run_spec.name,
                 adapter_spec=replace(
                     run_spec.adapter_spec,
-                    global_prefix=anthropic.HUMAN_PROMPT + " " + IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX + "\n\n",
-                    global_suffix="\n\n"
-                    + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
-                    + anthropic.AI_PROMPT
-                    + " "
-                    + run_spec.adapter_spec.output_prefix.strip(),
+                    global_prefix=global_prefix,
+                    global_suffix=global_suffix,
                 ),
             ),
         ]
@@ -325,17 +382,37 @@ class OpenAIRunExpander(RunExpander):
         if run_spec.adapter_spec.method != ADAPT_GENERATION:
             return [run_spec]
 
+        if (
+            run_spec.adapter_spec.max_train_instances is not None
+            and run_spec.adapter_spec.max_train_instances > 0
+        ):
+            global_prefix = (
+                run_spec.adapter_spec.global_prefix
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX
+                + "\n\n"
+            )
+            global_suffix = (
+                "\n\n"
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
+                + "\n"
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
+        else:
+            global_prefix = run_spec.adapter_spec.global_prefix
+            global_suffix = (
+                "\n\n"
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
         return [
             replace(
                 run_spec,
                 name=run_spec.name,
                 adapter_spec=replace(
                     run_spec.adapter_spec,
-                    global_prefix=IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX + "\n\n",
-                    global_suffix="\n\n"
-                    + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
-                    + "\n"
-                    + run_spec.adapter_spec.output_prefix.strip(),
+                    global_prefix=global_prefix,
+                    global_suffix=global_suffix,
                 ),
             ),
         ]
@@ -355,17 +432,37 @@ class GoogleRunExpander(RunExpander):
         if run_spec.adapter_spec.method != ADAPT_GENERATION:
             return [run_spec]
 
+        if (
+            run_spec.adapter_spec.max_train_instances is not None
+            and run_spec.adapter_spec.max_train_instances > 0
+        ):
+            global_prefix = (
+                run_spec.adapter_spec.global_prefix
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX
+                + "\n\n"
+            )
+            global_suffix = (
+                "\n\n"
+                + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
+                + "\n"
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
+        else:
+            global_prefix = run_spec.adapter_spec.global_prefix
+            global_suffix = (
+                "\n\n"
+                + run_spec.adapter_spec.output_prefix.strip()
+                + run_spec.adapter_spec.global_suffix
+            )
         return [
             replace(
                 run_spec,
                 name=run_spec.name,
                 adapter_spec=replace(
                     run_spec.adapter_spec,
-                    global_prefix=IN_CONTEXT_LEARNING_INSTRUCTIONS_PREFIX + "\n\n",
-                    global_suffix="\n\n"
-                    + IN_CONTEXT_LEARNING_INSTRUCTIONS_SUFFIX
-                    + "\n"
-                    + run_spec.adapter_spec.output_prefix.strip(),
+                    global_prefix=global_prefix,
+                    global_suffix=global_suffix,
                 ),
             ),
         ]
@@ -464,7 +561,12 @@ class MaxTrainInstancesRunExpander(ReplaceValueRunExpander):
         "zero": [0],
         "one": [1],
         "all": [0, 1, 2, 4, 8, 16],  # Cap at 16 due to limited context length
-        "big_bench_few_shot_setting": [0, 1, 2, 3],  # Commonly used few-shot setting in BIG-bench
+        "big_bench_few_shot_setting": [
+            0,
+            1,
+            2,
+            3,
+        ],  # Commonly used few-shot setting in BIG-bench
     }
 
 
@@ -519,7 +621,9 @@ class ModelRunExpander(ReplaceValueRunExpander):
     @property
     def values_dict(self):
         values_dict = {
-            "full_functionality_text": get_model_names_with_tag(FULL_FUNCTIONALITY_TEXT_MODEL_TAG),
+            "full_functionality_text": get_model_names_with_tag(
+                FULL_FUNCTIONALITY_TEXT_MODEL_TAG
+            ),
             "ai21/j1-jumbo": ["ai21/j1-jumbo"],
             "openai/curie": ["openai/curie"],
             "all": get_all_models(),
@@ -527,10 +631,24 @@ class ModelRunExpander(ReplaceValueRunExpander):
             "text": get_all_text_models(),
             "code": get_all_code_models(),
             "instruction_following": get_all_instruction_following_models(),
-            "limited_functionality_text": get_model_names_with_tag(LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG),
-            "summarization_zs": ["openai/davinci", "openai/curie", "openai/text-davinci-002", "openai/text-curie-001"],
-            "biomedical": ["openai/text-davinci-003"],  # TODO: add https://huggingface.co/stanford-crfm/BioMedLM
-            "interactive_qa": ["openai/text-davinci-001", "openai/davinci", "ai21/j1-jumbo", "openai/text-babbage-001"],
+            "limited_functionality_text": get_model_names_with_tag(
+                LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG
+            ),
+            "summarization_zs": [
+                "openai/davinci",
+                "openai/curie",
+                "openai/text-davinci-002",
+                "openai/text-curie-001",
+            ],
+            "biomedical": [
+                "openai/text-davinci-003"
+            ],  # TODO: add https://huggingface.co/stanford-crfm/BioMedLM
+            "interactive_qa": [
+                "openai/text-davinci-001",
+                "openai/davinci",
+                "ai21/j1-jumbo",
+                "openai/text-babbage-001",
+            ],
             "opinions_qa_openai": [
                 "openai/ada",
                 "openai/davinci",
@@ -539,7 +657,11 @@ class ModelRunExpander(ReplaceValueRunExpander):
                 "openai/text-davinci-002",
                 "openai/text-davinci-003",
             ],
-            "opinions_qa_ai21": ["ai21/j1-grande", "ai21/j1-jumbo", "ai21/j1-grande-v2-beta"],
+            "opinions_qa_ai21": [
+                "ai21/j1-grande",
+                "ai21/j1-jumbo",
+                "ai21/j1-grande-v2-beta",
+            ],
             "text_to_image": get_model_names_with_tag(TEXT_TO_IMAGE_MODEL_TAG),
             "vlm": get_model_names_with_tag(VISION_LANGUAGE_MODEL_TAG),
         }
@@ -549,7 +671,9 @@ class ModelRunExpander(ReplaceValueRunExpander):
         ablation_models = set(get_model_names_with_tag(ABLATION_MODEL_TAG))
         ablation_values_dict = {}
         for family_name, models in values_dict.items():
-            ablation_values_dict["ablation_" + family_name] = list(ablation_models & set(models))
+            ablation_values_dict["ablation_" + family_name] = list(
+                ablation_models & set(models)
+            )
         for family_name, models in ablation_values_dict.items():
             if family_name == "ablation_all":
                 values_dict["ablation"] = models
@@ -578,14 +702,17 @@ def extra_space(num_spaces: int) -> PerturbationSpec:
 
 def space(max_spaces: int) -> PerturbationSpec:
     return PerturbationSpec(
-        class_name="helm.benchmark.augmentations.space_perturbation.SpacePerturbation",
+        class_name=(
+            "helm.benchmark.augmentations.space_perturbation.SpacePerturbation"
+        ),
         args={"max_spaces": max_spaces},
     )
 
 
 def lower() -> PerturbationSpec:
     return PerturbationSpec(
-        class_name="helm.benchmark.augmentations.lowercase_perturbation.LowerCasePerturbation", args={}
+        class_name="helm.benchmark.augmentations.lowercase_perturbation.LowerCasePerturbation",
+        args={},
     )
 
 
@@ -612,7 +739,9 @@ def contrast_sets() -> PerturbationSpec:
 
 def typo(prob: float) -> PerturbationSpec:
     return PerturbationSpec(
-        class_name="helm.benchmark.augmentations.typos_perturbation.TyposPerturbation",
+        class_name=(
+            "helm.benchmark.augmentations.typos_perturbation.TyposPerturbation"
+        ),
         args={"prob": prob},
     )
 
@@ -626,7 +755,8 @@ def filler(prob: float) -> PerturbationSpec:
 
 def mild_mix() -> PerturbationSpec:
     return PerturbationSpec(
-        class_name="helm.benchmark.augmentations.mild_mix_perturbation.MildMixPerturbation", args={}
+        class_name="helm.benchmark.augmentations.mild_mix_perturbation.MildMixPerturbation",
+        args={},
     )
 
 
@@ -641,7 +771,10 @@ def contract_and_expand() -> List[PerturbationSpec]:
 
 
 def dialect(
-    prob: float, source_class: str, target_class: str, mapping_file_path: Optional[str] = None
+    prob: float,
+    source_class: str,
+    target_class: str,
+    mapping_file_path: Optional[str] = None,
 ) -> PerturbationSpec:
     return PerturbationSpec(
         class_name="helm.benchmark.augmentations.dialect_perturbation.DialectPerturbation",
@@ -782,7 +915,9 @@ ROBUSTNESS_PERTURBATION_SPECS: List[PerturbationSpec] = [mild_mix()]
 
 FAIRNESS_PERTURBATION_SPECS: List[PerturbationSpec] = [
     dialect(prob=1.0, source_class="SAE", target_class="AAVE"),
-    gender(mode="pronouns", prob=1.0, source_class="male", target_class="female"),
+    gender(
+        mode="pronouns", prob=1.0, source_class="male", target_class="female"
+    ),
     person_name(
         prob=1.0,
         source_class={"race": "white_american"},
@@ -803,23 +938,34 @@ PERTURBATION_SPECS_DICT: Dict[str, Dict[str, List[PerturbationSpec]]] = {
     "misspelling_mild": {"misspelling0.05": [misspelling(prob=0.05)]},
     "misspelling_medium": {"misspelling0.20": [misspelling(prob=0.20)]},
     "misspelling_hard": {"misspelling0.5": [misspelling(prob=0.5)]},
-    "misspelling_sweep": {f"misspelling{prob}": [misspelling(prob=prob)] for prob in [0, 0.05, 0.2, 0.5]},
+    "misspelling_sweep": {
+        f"misspelling{prob}": [misspelling(prob=prob)]
+        for prob in [0, 0.05, 0.2, 0.5]
+    },
     "typo_easy": {"typo0.1": [typo(prob=0.1)]},
     "typo_medium": {"typo0.3": [typo(prob=0.3)]},
     "typo_hard": {"typo0.5": [typo(prob=0.5)]},
     "synonym": {"synonym0.5": [synonym(prob=0.5)]},
     # Fairness
     "dialect_easy": {
-        "dialect_easy_prob=0.1_source=SAE_target=AAVE": [dialect(prob=0.1, source_class="SAE", target_class="AAVE")]
+        "dialect_easy_prob=0.1_source=SAE_target=AAVE": [
+            dialect(prob=0.1, source_class="SAE", target_class="AAVE")
+        ]
     },
     "dialect_medium": {
-        "dialect_prob=0.3_source=SAE_target=AAVE": [dialect(prob=0.3, source_class="SAE", target_class="AAVE")]
+        "dialect_prob=0.3_source=SAE_target=AAVE": [
+            dialect(prob=0.3, source_class="SAE", target_class="AAVE")
+        ]
     },
     "dialect_hard": {
-        "dialect_prob=0.5_source=SAE_target=AAVE": [dialect(prob=0.5, source_class="SAE", target_class="AAVE")]
+        "dialect_prob=0.5_source=SAE_target=AAVE": [
+            dialect(prob=0.5, source_class="SAE", target_class="AAVE")
+        ]
     },
     "dialect_deterministic": {
-        "dialect_prob=1.0_source=SAE_target=AAVE": [dialect(prob=1.0, source_class="SAE", target_class="AAVE")]
+        "dialect_prob=1.0_source=SAE_target=AAVE": [
+            dialect(prob=1.0, source_class="SAE", target_class="AAVE")
+        ]
     },
     "person_name_first_hard_preserve_gender": {
         "person_name_first_prob=0.5_source=white_target=black_preserve_gender=True": [
@@ -878,47 +1024,89 @@ PERTURBATION_SPECS_DICT: Dict[str, Dict[str, List[PerturbationSpec]]] = {
     },
     "gender_terms_easy": {
         "gender_terms_prob=0.1_source=male_target=female": [
-            gender(mode="terms", prob=0.1, source_class="male", target_class="female")
+            gender(
+                mode="terms",
+                prob=0.1,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_terms_medium": {
         "gender_terms_prob=0.3_source=male_target=female": [
-            gender(mode="terms", prob=0.3, source_class="male", target_class="female")
+            gender(
+                mode="terms",
+                prob=0.3,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_terms_hard": {
         "gender_terms_prob=0.5_source=male_target=female": [
-            gender(mode="terms", prob=0.5, source_class="male", target_class="female")
+            gender(
+                mode="terms",
+                prob=0.5,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_terms_deterministic": {
         "gender_terms_prob=1.0_source=male_target=female": [
-            gender(mode="terms", prob=1.0, source_class="male", target_class="female")
+            gender(
+                mode="terms",
+                prob=1.0,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_pronouns_easy": {
         "gender_pronouns_prob=0.1_source=male_target=female": [
-            gender(mode="pronouns", prob=0.1, source_class="male", target_class="female")
+            gender(
+                mode="pronouns",
+                prob=0.1,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_pronouns_medium": {
         "gender_pronouns_prob=0.3_source=male_target=female": [
-            gender(mode="pronouns", prob=0.3, source_class="male", target_class="female")
+            gender(
+                mode="pronouns",
+                prob=0.3,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_pronouns_hard": {
         "gender_pronouns_prob=0.5_source=male_target=female": [
-            gender(mode="pronouns", prob=0.5, source_class="male", target_class="female")
+            gender(
+                mode="pronouns",
+                prob=0.5,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "gender_pronouns_deterministic": {
         "gender_pronouns_prob=1.0_source=male_target=female": [
-            gender(mode="pronouns", prob=1.0, source_class="male", target_class="female")
+            gender(
+                mode="pronouns",
+                prob=1.0,
+                source_class="male",
+                target_class="female",
+            )
         ]
     },
     "robustness": {"robustness": ROBUSTNESS_PERTURBATION_SPECS},
     "fairness": {"fairness": FAIRNESS_PERTURBATION_SPECS},
-    "canonical": {"canonical": ROBUSTNESS_PERTURBATION_SPECS + FAIRNESS_PERTURBATION_SPECS},
+    "canonical": {
+        "canonical": ROBUSTNESS_PERTURBATION_SPECS + FAIRNESS_PERTURBATION_SPECS
+    },
     "robustness_all": {
         "robustness_all": [
             *contract_and_expand(),
@@ -933,7 +1121,12 @@ PERTURBATION_SPECS_DICT: Dict[str, Dict[str, List[PerturbationSpec]]] = {
     "cleva_robustness": {"robustness": [cleva_mild_mix()]},
     "cleva_fairness": {
         "fairness": [
-            cleva_gender(mode="pronouns", prob=1.0, source_class="male", target_class="female"),
+            cleva_gender(
+                mode="pronouns",
+                prob=1.0,
+                source_class="male",
+                target_class="female",
+            ),
             cleva_person_name(
                 prob=1.0,
                 source_class={"gender": "male"},
@@ -947,7 +1140,12 @@ PERTURBATION_SPECS_DICT: Dict[str, Dict[str, List[PerturbationSpec]]] = {
     "cleva": {
         "cleva": [
             cleva_mild_mix(),
-            cleva_gender(mode="pronouns", prob=1.0, source_class="male", target_class="female"),
+            cleva_gender(
+                mode="pronouns",
+                prob=1.0,
+                source_class="male",
+                target_class="female",
+            ),
             cleva_person_name(
                 prob=1.0,
                 source_class={"gender": "male"},
@@ -1000,13 +1198,16 @@ class DataAugmentationRunExpander(RunExpander):
 
         if self.value not in PERTURBATION_SPECS_DICT:
             raise ValueError(
-                f"Unknown data_augmentation: {self.value}; possible choices: {PERTURBATION_SPECS_DICT.keys()}"
+                f"Unknown data_augmentation: {self.value}; possible choices:"
+                f" {PERTURBATION_SPECS_DICT.keys()}"
             )
 
     def expand(self, run_spec: RunSpec) -> List[RunSpec]:
         """Return `run_spec` with data augmentations."""
 
-        def create_run_spec(aug_name: str, perturbation_specs: List[PerturbationSpec]) -> RunSpec:
+        def create_run_spec(
+            aug_name: str, perturbation_specs: List[PerturbationSpec]
+        ) -> RunSpec:
             data_augmenter_spec: DataAugmenterSpec = DataAugmenterSpec(
                 perturbation_specs=perturbation_specs,
                 # Always include original and perturbed instances together so that
@@ -1027,7 +1228,9 @@ class DataAugmentationRunExpander(RunExpander):
 
         return [
             create_run_spec(aug_name, perturbation_specs)
-            for aug_name, perturbation_specs in PERTURBATION_SPECS_DICT[self.value].items()
+            for aug_name, perturbation_specs in PERTURBATION_SPECS_DICT[
+                self.value
+            ].items()
         ]
 
 
@@ -1055,9 +1258,14 @@ class ScenarioSpecRunExpander(RunExpander):
         return [
             replace(
                 run_spec,
-                name=f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={sanitize(value)}",
+                name=(
+                    f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={sanitize(value)}"
+                ),
                 scenario_spec=replace(
-                    run_spec.scenario_spec, args=dict(run_spec.scenario_spec.args, **{self.name: value})
+                    run_spec.scenario_spec,
+                    args=dict(
+                        run_spec.scenario_spec.args, **{self.name: value}
+                    ),
                 ),
             )
             for value in self.values
@@ -1116,7 +1324,11 @@ class TokenizerRunExpander(ScenarioSpecRunExpander):
         # Find right tokenizer given model deployment name.
         if isinstance(self.all_values, dict):
             deployment: str = run_spec.adapter_spec.model_deployment
-            self.values = self.all_values[deployment] if deployment in self.all_values else []
+            self.values = (
+                self.all_values[deployment]
+                if deployment in self.all_values
+                else []
+            )
         else:
             self.values = self.all_values
         return super().expand(run_spec)
@@ -1159,8 +1371,12 @@ class NumOutputTokensRunExpander(RunExpander):
         return [
             replace(
                 run_spec,
-                name=f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={value}",
-                adapter_spec=replace(run_spec.adapter_spec, **{self.adapter_spec_name: value}),
+                name=(
+                    f"{run_spec.name}{',' if ':' in run_spec.name else ':'}{self.name}={value}"
+                ),
+                adapter_spec=replace(
+                    run_spec.adapter_spec, **{self.adapter_spec_name: value}
+                ),
             )
             for value in self.values
         ]
@@ -1182,7 +1398,9 @@ class IncreaseMaxTokensRunExpander(RunExpander):
 
     def expand(self, run_spec: RunSpec) -> List[RunSpec]:
         adapter_spec: AdapterSpec = run_spec.adapter_spec
-        adapter_spec = replace(adapter_spec, max_tokens=adapter_spec.max_tokens + self.value)
+        adapter_spec = replace(
+            adapter_spec, max_tokens=adapter_spec.max_tokens + self.value
+        )
         return [
             replace(
                 run_spec,
@@ -1207,7 +1425,9 @@ class IncreaseTemperatureRunExpander(RunExpander):
 
     def expand(self, run_spec: RunSpec) -> List[RunSpec]:
         adapter_spec: AdapterSpec = run_spec.adapter_spec
-        adapter_spec = replace(adapter_spec, temperature=adapter_spec.temperature + self.value)
+        adapter_spec = replace(
+            adapter_spec, temperature=adapter_spec.temperature + self.value
+        )
         return [
             replace(
                 run_spec,
@@ -1272,7 +1492,10 @@ class ChatMLRunExpander(RunExpander):
             #     <|im_start|>assistant
             #
 
-            new_output_prefix = adapter_spec.output_prefix + "<|im_end|>\n<|im_start|>assistant\n"
+            new_output_prefix = (
+                adapter_spec.output_prefix
+                + "<|im_end|>\n<|im_start|>assistant\n"
+            )
 
         else:
             # output_prefix:
@@ -1283,7 +1506,10 @@ class ChatMLRunExpander(RunExpander):
             #     <|im_start|>assistant
             #     {output_prefix}
 
-            new_output_prefix = "<|im_end|>\n<|im_start|>assistant\n" + adapter_spec.output_prefix
+            new_output_prefix = (
+                "<|im_end|>\n<|im_start|>assistant\n"
+                + adapter_spec.output_prefix
+            )
 
         adapter_spec = replace(
             adapter_spec,
@@ -1330,4 +1556,6 @@ RUN_EXPANDER_SUBCLASSES: List[Type[RunExpander]] = [
 ]
 
 
-RUN_EXPANDERS = dict((expander.name, expander) for expander in RUN_EXPANDER_SUBCLASSES)
+RUN_EXPANDERS = dict(
+    (expander.name, expander) for expander in RUN_EXPANDER_SUBCLASSES
+)

@@ -93,8 +93,8 @@ class MultiStepExecutor(Executor):
         file = pick_right_log_file(new_request.model)
         log_api_request(
             file,
-            new_request,
-            result_step_1,
+            request=new_request,
+            response=result_step_1,
             raw_request={},
             prefix="Detection step (3-steps SG)",
         )
@@ -195,14 +195,24 @@ class MultiStepExecutor(Executor):
         file = pick_right_log_file(new_request.model)
         log_api_request(
             file,
-            new_request,
-            result_step_2,
+            request=new_request,
+            response=result_step_2,
             raw_request={},
             prefix="Translation step (3-steps SG)",
         )
         print("========= END SG implementation step 2 =============")
-        rewritten_last_message = self.extract_rewritten_prompt(result_step_2)
-        return rewritten_last_message
+        assert len(result_step_2.completions) == 1
+        completion = result_step_2.completions[0].text
+        success, raw_scenario_text_wt_vanilla_threat = (
+            sg_demo.extract_translation_from_completion(
+                completion,
+                new_request.prompt,
+            )
+        )
+        if success:
+            return raw_scenario_text_wt_vanilla_threat
+        else:
+            return new_request.prompt
 
     def prepare_request_step_3(
         self,
@@ -228,15 +238,6 @@ class MultiStepExecutor(Executor):
         return self.adapt_prompt_to_right_format(
             eval_instance_block, model_name=model
         )
-
-    def extract_rewritten_prompt(self, result_step_2: RequestResult) -> str:
-        assert len(result_step_2.completions) == 1
-        completion = result_step_2.completions[0].text
-        if completion.startswith("```"):
-            return completion[len("```") :]
-        if completion.endswith("```"):
-            return completion[len("```") :]
-        return completion
 
     def replace_last_message(
         self,

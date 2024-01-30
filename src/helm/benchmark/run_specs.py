@@ -3811,28 +3811,7 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
                     prefix="",
                     suffix=anthropic.AI_PROMPT + "\n{instance.input.text}",
                 )
-                run_spec = replace(
-                    run_spec,
-                    name=run_spec.name,
-                    adapter_spec=replace(
-                        run_spec.adapter_spec,
-                        global_prefix=anthropic.HUMAN_PROMPT,
-                        global_suffix="",
-                    ),
-                )
                 run_spec = singleton(format_expander.expand(run_spec))
-
-        if GOOGLE_GEMINI_MODEL_TAG in model.tags:
-            if "code:dataset=humaneval" in run_spec.name:
-                run_spec = replace(
-                    run_spec,
-                    name=run_spec.name,
-                    adapter_spec=replace(
-                        run_spec.adapter_spec,
-                        global_prefix="",
-                        global_suffix="",
-                    ),
-                )
 
         # For multiple choice
         if (

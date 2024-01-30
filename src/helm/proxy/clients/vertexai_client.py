@@ -33,6 +33,8 @@ from ...common.clr_constants import (
     log_api_request,
     VERTEXAI_CLIENT_TEXT_LOG_FILE,
     VERTEXAI_CLIENT_CHAT_LOG_FILE,
+    USE_SINGLE_STEP_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION,
 )
 
 try:
@@ -140,6 +142,12 @@ class VertexAITextClient(VertexAIClient):
                 {
                     "engine": request.model_engine,
                     "prompt": request.prompt,
+                    "USE_SINGLE_STEP_SG_IMPLEMENTATION": (
+                        USE_SINGLE_STEP_SG_IMPLEMENTATION
+                    ),
+                    "USE_THREE_STEPS_SG_IMPLEMENTATION": (
+                        USE_THREE_STEPS_SG_IMPLEMENTATION
+                    ),
                     **parameters,
                 },
                 request,
@@ -195,7 +203,10 @@ class VertexAITextClient(VertexAIClient):
 
         raw_request = {"prompt": request.prompt, **parameters}
         log_api_request(
-            VERTEXAI_CLIENT_TEXT_LOG_FILE, request, raw_request, response
+            VERTEXAI_CLIENT_TEXT_LOG_FILE,
+            request=request,
+            raw_request=raw_request,
+            response=response,
         )
 
         return RequestResult(
@@ -306,6 +317,12 @@ class VertexAIChatClient(VertexAIClient):
                 {
                     "model_name": model_name,
                     "prompt": prompt_key,
+                    "USE_SINGLE_STEP_SG_IMPLEMENTATION": (
+                        USE_SINGLE_STEP_SG_IMPLEMENTATION
+                    ),
+                    "USE_THREE_STEPS_SG_IMPLEMENTATION": (
+                        USE_THREE_STEPS_SG_IMPLEMENTATION
+                    ),
                     **parameters,
                 },
                 request,
@@ -356,7 +373,10 @@ class VertexAIChatClient(VertexAIClient):
 
         raw_request = {"prompt": request.prompt, **parameters}
         log_api_request(
-            VERTEXAI_CLIENT_CHAT_LOG_FILE, request, raw_request, response
+            VERTEXAI_CLIENT_CHAT_LOG_FILE,
+            request=request,
+            raw_request=raw_request,
+            response=response,
         )
 
         return RequestResult(

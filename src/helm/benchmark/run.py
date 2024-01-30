@@ -1,3 +1,4 @@
+import anthropic
 import argparse
 import copy
 from dataclasses import replace
@@ -86,21 +87,32 @@ def run_entries_to_run_specs(
                 )
 
             if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION:
+                if "anthropic" in adapter_spec.model:
+                    extra_prefix = anthropic.HUMAN_PROMPT + "\n\n"
+                    if (
+                        adapter_spec.global_prefix is not None
+                        and adapter_spec.global_prefix.startswith(
+                            anthropic.HUMAN_PROMPT
+                        )
+                    ):
+                        adapter_spec_global_prefix = adapter_spec.global_prefix[
+                            len(anthropic.HUMAN_PROMPT) :
+                        ]
+                    else:
+                        adapter_spec_global_prefix = adapter_spec.global_prefix
+                else:
+                    extra_prefix = ""
+                    adapter_spec_global_prefix = adapter_spec.global_prefix
                 adapter_spec = replace(
                     adapter_spec,
-                    instructions=clr_contrib.SINGLE_STEP_PROMPT
-                    + adapter_spec.instructions,
+                    global_prefix=extra_prefix
+                    + clr_contrib.SINGLE_STEP_PROMPT
+                    + (
+                        adapter_spec_global_prefix
+                        if adapter_spec_global_prefix is not None
+                        else ""
+                    ),
                 )
-            # Not working, see the clr_contrib.py file for explanations
-            # if (
-            #     clr_contrib.USE_SINGLE_STEP_SG_IMPLEMENTATION
-            #     or clr_contrib.USE_THREE_STEPS_SG_IMPLEMENTATION
-            # ):
-            #     print("Setting CURRENT_RUN_SPEC_ADAPTER_SPEC")
-            #     print("adapter_spec", adapter_spec)
-            #     clr_contrib.CURRENT_RUN_SPEC_ADAPTER_SPEC = copy.deepcopy(
-            #         adapter_spec
-            #     )
             run_spec = replace(run_spec, adapter_spec=adapter_spec)
             # Append groups
             if entry.groups is not None:
@@ -368,13 +380,15 @@ def main():
         if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION:
             assert (
                 args.suite == "wt_1_step_SG"
-            ), f"Wrong suite name: {args.suite}"
+            ), f"Wrong suite name: {args.suite}, expecting wt_1_step_SG"
         elif clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION:
             assert (
                 args.suite == "wt_3_steps_SG"
-            ), f"Wrong suite name: {args.suite}"
+            ), f"Wrong suite name: {args.suite}, expecting wt_3_steps_SG"
         else:
-            assert args.suite == "wtout_SG", f"Wrong suite name: {args.suite}"
+            assert (
+                args.suite == "wtout_SG"
+            ), f"Wrong suite name: {args.suite}, expecting wtout_SG"
 
     validate_args(args)
 
