@@ -17,6 +17,7 @@ from helm.common.clr_constants import (
     log_api_request,
     pick_right_log_file,
 )
+from surrogate_goal_demo.shared import constants
 from surrogate_goal_demo.shared.external_loading_prompts import (
     load_single_step_sg_implementation_prompt,
     load_three_steps_sg_implementation_prompts,
@@ -86,20 +87,34 @@ class MultiStepExecutor(Executor):
         print("========= START SG implementation step 1 =============")
         print("Going to detect need to rewrite prompt")
         print("prompt", new_request.prompt)
-        result_step_1: RequestResult = self.service.make_request(
-            self.execution_spec.auth, new_request
-        )
-        print("completions:", [seq.text for seq in result_step_1.completions])
-        file = pick_right_log_file(new_request.model)
-        log_api_request(
-            file,
-            request=new_request,
-            response=result_step_1,
-            raw_request={},
-            prefix="Detection step (3-steps SG)",
-        )
+        surrogate_threat_detected = None
+        result_step_1 = None
+        for trial_i in range(constants.MAX_COMPLETION_TRIALS):
+            if trial_i > 0:
+                print(f"Trial {trial_i}, retrying completion")
+                print("Previous completion invalid: ", result_step_1)
+            result_step_1: RequestResult = self.service.make_request(
+                self.execution_spec.auth, new_request
+            )
+            print(
+                "completions:", [seq.text for seq in result_step_1.completions]
+            )
+            file = pick_right_log_file(new_request.model)
+            log_api_request(
+                file,
+                request=new_request,
+                response=result_step_1,
+                raw_request={},
+                prefix="Detection step (3-steps SG)",
+            )
+            surrogate_threat_detected = self.extract_detection_need_to_rewrite(
+                result_step_1
+            )
+            if surrogate_threat_detected is not None:
+                break
+
         print("========= END SG implementation step 1 =============")
-        return self.extract_detection_need_to_rewrite(result_step_1)
+        return surrogate_threat_detected
 
     def write_detection_prompt(self, last_message, model) -> str:
         eval_instance_block = MULTI_STEP_PROMPT_STEP_1.format(
@@ -188,27 +203,38 @@ class MultiStepExecutor(Executor):
         print("========= START SG implementation step 2 =============")
         print("Going to rewrite prompt")
         print("prompt", new_request.prompt)
-        result_step_2: RequestResult = self.service.make_request(
-            self.execution_spec.auth, new_request
-        )
-        print("completions:", [seq.text for seq in result_step_2.completions])
-        file = pick_right_log_file(new_request.model)
-        log_api_request(
-            file,
-            request=new_request,
-            response=result_step_2,
-            raw_request={},
-            prefix="Translation step (3-steps SG)",
-        )
-        print("========= END SG implementation step 2 =============")
-        assert len(result_step_2.completions) == 1
-        completion = result_step_2.completions[0].text
-        success, raw_scenario_text_wt_vanilla_threat = (
-            sg_demo.extract_translation_from_completion(
-                completion,
-                new_request.prompt,
+        result_step_2 = None
+        success = False
+        for trial_i in range(constants.MAX_COMPLETION_TRIALS):
+            if trial_i > 0:
+                print(f"Trial {trial_i}, retrying completion")
+                print("Previous translation invalid: ", result_step_2)
+            result_step_2: RequestResult = self.service.make_request(
+                self.execution_spec.auth, new_request
             )
-        )
+            print(
+                "completions:", [seq.text for seq in result_step_2.completions]
+            )
+            file = pick_right_log_file(new_request.model)
+            log_api_request(
+                file,
+                request=new_request,
+                response=result_step_2,
+                raw_request={},
+                prefix="Translation step (3-steps SG)",
+            )
+            assert len(result_step_2.completions) == 1
+            completion = result_step_2.completions[0].text
+            success, raw_scenario_text_wt_vanilla_threat = (
+                sg_demo.extract_translation_from_completion(
+                    completion,
+                    new_request.prompt,
+                )
+            )
+            if success:
+                break
+
+        print("========= END SG implementation step 2 =============")
         if success:
             return raw_scenario_text_wt_vanilla_threat
         else:
