@@ -8,6 +8,7 @@ from typing import List, Tuple
 
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.executor import Executor
+from helm.benchmark.model_metadata_registry import get_model_metadata
 from helm.common.request import RequestResult
 
 import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
@@ -353,9 +354,9 @@ def clean_code_completion(completion: str):
 
 def count_tokens(text: str, model):
     if model.startswith("ft:"):
-        model_simplified = model.split(":")[1]
-        encoding = tiktoken.encoding_for_model(model_simplified)
-    else:
-        encoding = tiktoken.encoding_for_model(model)
+        model = model.split(":")[1]
+
+    encoding_name = get_model_metadata(model).tokenizer_name
+    encoding = tiktoken.get_encoding(encoding_name)
     tokens = encoding.encode(text)
     return len(tokens)

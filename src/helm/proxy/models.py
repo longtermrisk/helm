@@ -993,6 +993,20 @@ ALL_MODELS = [
             INSTRUCTION_FOLLOWING_MODEL_TAG,
         ],
     ),
+    Model(
+        group="gpt3",
+        name="openai/gpt-3.5-turbo-0125",
+        # Claimed length is 16,384; we round down to 16,000 for the same reasons as explained
+        # in the openai/gpt-3.5-turbo-0613 comment
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
     # OpenAI similarity embedding models: https://beta.openai.com/docs/guides/embeddings
     Model(
         group="gpt3",
