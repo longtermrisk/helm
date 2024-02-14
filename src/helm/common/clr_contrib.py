@@ -9,7 +9,7 @@ from typing import List, Tuple
 from helm.benchmark.adaptation.request_state import RequestState
 from helm.benchmark.executor import Executor
 from helm.benchmark.model_metadata_registry import get_model_metadata
-from helm.common.request import RequestResult
+from helm.common.request import RequestResult, Request
 
 import surrogate_goal_demo.analysis.utils.multi_step_SG_implementation as sg_demo
 from helm.common.clr_constants import (
@@ -69,10 +69,10 @@ class MultiStepExecutor(Executor):
         return super().process(state)
 
     def detect_need_to_rewrite(
-        self, initial_request: RequestState, last_message: str
+        self, initial_request: Request, last_message: str
     ) -> bool:
         new_request = replace(
-            initial_request,
+            copy.deepcopy(initial_request),
             prompt=self.write_detection_prompt(
                 last_message, initial_request.model
             ),
@@ -81,9 +81,18 @@ class MultiStepExecutor(Executor):
             new_request,
             max_tokens=200,
         )
+        stop_sequences = ["END"]
+        assert all(
+            stop_seq not in initial_request.prompt
+            for stop_seq in stop_sequences
+        )
         new_request = replace(
             new_request,
-            stop_sequences=["END"],
+            stop_sequences=stop_sequences,
+        )
+        new_request = replace(
+            new_request,
+            temperature=1.0,
         )
         print("========= START SG implementation step 1 =============")
         print("Going to detect need to rewrite prompt")
@@ -94,6 +103,10 @@ class MultiStepExecutor(Executor):
             if trial_i > 0:
                 print(f"Trial {trial_i}, retrying completion")
                 print("Previous completion invalid: ", result_step_1)
+            new_request = replace(
+                new_request,
+                caching_index=trial_i,
+            )
             result_step_1: RequestResult = self.service.make_request(
                 self.execution_spec.auth, new_request
             )
@@ -114,6 +127,10 @@ class MultiStepExecutor(Executor):
             if surrogate_threat_detected is not None:
                 break
 
+        if surrogate_threat_detected is None:
+            raise ValueError(
+                "No completion was obtained for the detection prompt"
+            )
         print("========= END SG implementation step 1 =============")
         return surrogate_threat_detected
 
@@ -180,11 +197,11 @@ class MultiStepExecutor(Executor):
         need_to_rewrite_prompt,
         last_message,
     ) -> RequestState:
-        if not need_to_rewrite_prompt:
+        if not need_to_rewrite_prompt or need_to_rewrite_prompt is None:
             return None
 
         new_request = replace(
-            initial_request,
+            copy.deepcopy(initial_request),
             prompt=self.write_replacement_prompt(
                 last_message, initial_request.model
             ),
@@ -201,6 +218,10 @@ class MultiStepExecutor(Executor):
             new_request,
             stop_sequences=stop_sequences,
         )
+        new_request = replace(
+            new_request,
+            temperature=1.0,
+        )
         print("========= START SG implementation step 2 =============")
         print("Going to rewrite prompt")
         print("prompt", new_request.prompt)
@@ -210,6 +231,10 @@ class MultiStepExecutor(Executor):
             if trial_i > 0:
                 print(f"Trial {trial_i}, retrying completion")
                 print("Previous translation invalid: ", result_step_2)
+            new_request = replace(
+                new_request,
+                caching_index=trial_i,
+            )
             result_step_2: RequestResult = self.service.make_request(
                 self.execution_spec.auth, new_request
             )
@@ -234,6 +259,11 @@ class MultiStepExecutor(Executor):
             )
             if success:
                 break
+
+        if not success:
+            raise ValueError(
+                "No valid completion was obtained for the translation prompt"
+            )
 
         print("========= END SG implementation step 2 =============")
         if success:

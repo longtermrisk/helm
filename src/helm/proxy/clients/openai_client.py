@@ -87,6 +87,7 @@ class OpenAIClient(CachingClient):
                 "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                     USE_THREE_STEPS_SG_IMPLEMENTATION
                 ),
+                "caching_index": request.caching_index,
                 **raw_request,
             },
             request,

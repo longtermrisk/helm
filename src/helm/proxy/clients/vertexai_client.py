@@ -148,6 +148,7 @@ class VertexAITextClient(VertexAIClient):
                     "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                         USE_THREE_STEPS_SG_IMPLEMENTATION
                     ),
+                    "caching_index": request.caching_index,
                     **parameters,
                 },
                 request,
@@ -167,8 +168,13 @@ class VertexAITextClient(VertexAIClient):
             )
 
         for prediction in response["predictions"]:
-            logging.info(prediction)
-            response_text = prediction["text"]
+            logging.info(f"prediction: '{prediction}'")
+            if "text" not in prediction:
+                logging.warning(
+                    "VertexAITextClient: 'text' not in prediction:"
+                    f" '{prediction}', caching_index: {request.caching_index}"
+                )
+            response_text = prediction.get("text", "")
 
             # The Python SDK does not support echo
             # TODO #2084: Add support for echo.
@@ -323,6 +329,7 @@ class VertexAIChatClient(VertexAIClient):
                     "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                         USE_THREE_STEPS_SG_IMPLEMENTATION
                     ),
+                    "caching_index": request.caching_index,
                     **parameters,
                 },
                 request,
@@ -342,8 +349,13 @@ class VertexAIChatClient(VertexAIClient):
             )
 
         for prediction in response["predictions"]:
-            logging.info(prediction)
-            response_text = prediction["text"]
+            logging.info(f"prediction: '{prediction}'")
+            if "text" not in prediction:
+                logging.warning(
+                    "VertexAITextClient: 'text' not in prediction:"
+                    f" '{prediction}', caching_index: {request.caching_index}"
+                )
+            response_text = prediction.get("text", "")
 
             # The Python SDK does not support echo
             # TODO #2084: Add support for echo.

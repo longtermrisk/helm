@@ -74,6 +74,8 @@ class Request:
     image_generation_parameters: Optional[ImageGenerationParameters] = None
     """Parameters for image generation."""
 
+    caching_index: int = 0
+
     @property
     def model_host(self) -> str:
         """Returns the model host (referring to the deployment).
