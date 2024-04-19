@@ -17,12 +17,14 @@ from helm.common.clr_constants import (
     USE_THREE_STEPS_SG_IMPLEMENTATION,
     log_api_request,
     pick_right_log_file,
+    USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
 )
 from surrogate_goal_demo.shared import constants
 from surrogate_goal_demo.shared.external_loading_prompts import (
     load_single_step_sg_implementation_prompt,
     load_three_steps_sg_implementation_prompts,
     THREE_STEPS_SG_IMPLEMENTATION_VERSION_TO_USE,
+    TRANSLATION_MODEL,
 )
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -34,8 +36,15 @@ SINGLE_STEP_PROMPT = (
     else None
 )
 MULTI_STEP_PROMPT_STEP_1, MULTI_STEP_PROMPT_STEP_2 = (
-    load_three_steps_sg_implementation_prompts()
-    if USE_THREE_STEPS_SG_IMPLEMENTATION
+    load_three_steps_sg_implementation_prompts(
+        sg_version=None,
+        vanilla=USE_THREE_STEPS_SG_IMPLEMENTATION,
+        wt_ft=USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
+    )
+    if (
+        USE_THREE_STEPS_SG_IMPLEMENTATION
+        or USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
+    )
     else (None, None)
 )
 
@@ -235,6 +244,11 @@ class MultiStepExecutor(Executor):
                 new_request,
                 caching_index=trial_i,
             )
+            if USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT:
+                new_request = replace(
+                    new_request,
+                    model=TRANSLATION_MODEL,
+                )
             result_step_2: RequestResult = self.service.make_request(
                 self.execution_spec.auth, new_request
             )
@@ -251,11 +265,12 @@ class MultiStepExecutor(Executor):
             )
             assert len(result_step_2.completions) == 1
             completion = result_step_2.completions[0].text
-            success, raw_scenario_text_wt_vanilla_threat = (
-                sg_demo.extract_translation_from_completion(
-                    completion,
-                    new_request.prompt,
-                )
+            (
+                success,
+                raw_scenario_text_wt_vanilla_threat,
+            ) = sg_demo.extract_translation_from_completion(
+                completion,
+                new_request.prompt,
             )
             if success:
                 break

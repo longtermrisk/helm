@@ -36,6 +36,7 @@ from ...common.clr_constants import (
     ANTHROPIC_CLIENT_LOG_FILE,
     USE_SINGLE_STEP_SG_IMPLEMENTATION,
     USE_THREE_STEPS_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
 )
 
 try:
@@ -87,11 +88,30 @@ class AnthropicClient(CachingClient):
             raise Exception(
                 "API key is not set. Please set it in the HELM config file."
             )
-        result = self._client.completions.create(**raw_request)
+        # result = self._client.completions.create(**raw_request)
+
+        raw_request = self.convert_prompt_to_messages(raw_request)
+        logging.info(f"Sending request: {raw_request}")
+        result = self._client.messages.create(**raw_request)
         assert (
             "error" not in result
         ), f"Request failed with error: {result['error']}"
         return result
+
+    def convert_prompt_to_messages(self, raw_request):
+        prompt = raw_request.pop("prompt")
+        messages = []
+        for text_block in raw_request["prompt"].split(anthropic.HUMAN_PROMPT):
+            text_blocks = text_block.split(anthropic.AI_PROMPT)
+            for i, text_block in enumerate(text_blocks):
+                if i == 0:
+                    messages.append({"role": "user", "content": text_block})
+                else:
+                    messages.append(
+                        {"role": "assistant", "content": text_block}
+                    )
+        raw_request["messages"] = messages
+        return raw_request
 
     def _filter_completion(self, completion: str, max_tokens: int) -> str:
         # If the completion starts with a colon, space, or newline, remove it.
@@ -167,6 +187,9 @@ class AnthropicClient(CachingClient):
                         ),
                         "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                             USE_THREE_STEPS_SG_IMPLEMENTATION
+                        ),
+                        "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT": (
+                            USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                         ),
                         "caching_index": request.caching_index,
                         **raw_request,
@@ -538,6 +561,9 @@ class AnthropicLegacyClient(CachingClient):
                         ),
                         "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                             USE_THREE_STEPS_SG_IMPLEMENTATION
+                        ),
+                        "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT": (
+                            USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                         ),
                         "caching_index": request.caching_index,
                         **raw_request,

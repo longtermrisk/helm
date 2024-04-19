@@ -1,4 +1,5 @@
 # mypy: check_untyped_defs = False
+import os
 from datetime import datetime
 
 import json
@@ -35,21 +36,24 @@ from ...common.clr_constants import (
     OPENAI_CLIENT_LOG_FILE,
     USE_SINGLE_STEP_SG_IMPLEMENTATION,
     USE_THREE_STEPS_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
 )
 
 try:
     import openai
+    import openai.types.chat
 except ModuleNotFoundError as e:
     handle_module_not_found_error(e, ["openai"])
 
 
-ORIGINAL_COMPLETION_ATTRIBUTES = (
-    openai.api_resources.completion.Completion.__bases__
-)
+# ORIGINAL_COMPLETION_ATTRIBUTES = (
+#     openai.api_resources.completion.Completion.__bases__
+# )
 
 
 class OpenAIClient(CachingClient):
     END_OF_TEXT: str = "<|endoftext|>"
+    OPENAI_CLIENT = None
 
     def __init__(
         self,
@@ -87,6 +91,9 @@ class OpenAIClient(CachingClient):
                 "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                     USE_THREE_STEPS_SG_IMPLEMENTATION
                 ),
+                "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT": (
+                    USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
+                ),
                 "caching_index": request.caching_index,
                 **raw_request,
             },
@@ -112,9 +119,9 @@ class OpenAIClient(CachingClient):
                 "engine": request.model_engine,
             }
         elif self._is_chat_model_engine(request.model_engine):
-            messages: Optional[List[Dict[str, Union[str, Any]]]] = (
-                request.messages
-            )
+            messages: Optional[
+                List[Dict[str, Union[str, Any]]]
+            ] = request.messages
             if request.messages and len(request.messages) > 1:
                 # Checks that all messages have a role and some content
                 for message in request.messages:
@@ -233,22 +240,42 @@ class OpenAIClient(CachingClient):
 
             def do_it():
                 self._set_access_info()
-                return openai.Embedding.create(**raw_request)
+                raise NotImplementedError()
+                # return openai.Embedding.create(**raw_request)
 
         elif self._is_chat_model_engine(request.model_engine):
 
             def do_it():
                 self._set_access_info()
-                return openai.ChatCompletion.create(**raw_request)
+                if self.OPENAI_CLIENT is None:
+                    from openai import OpenAI
+
+                    self.OPENAI_CLIENT = OpenAI(
+                        api_key=open(
+                            "/Users/maximeriche/Dev/surrogate_goals_demo/openai_key.txt",
+                            "r",
+                        )
+                        .read()
+                        .strip()
+                    )
+                chat_object = self.OPENAI_CLIENT.chat.completions.create(
+                    **raw_request
+                )
+                # assert 0
+
+                return self.new_to_old_openai_response_format(chat_object)
+
+                # return openai.ChatCompletion.create(**raw_request)
 
         else:
 
             def do_it():
                 self._set_access_info()
-                openai.api_resources.completion.Completion.__bases__ = (
-                    ORIGINAL_COMPLETION_ATTRIBUTES
-                )
-                return openai.Completion.create(**raw_request)
+                raise NotImplementedError()
+                # openai.api_resources.completion.Completion.__bases__ = (
+                #     ORIGINAL_COMPLETION_ATTRIBUTES
+                # )
+                # return openai.Completion.create(**raw_request)
 
         if raw_request["max_tokens"] == 0 and self._is_chat_model_engine(
             request.model_engine
@@ -269,7 +296,7 @@ class OpenAIClient(CachingClient):
             response, cached = self.cache.get(
                 cache_key, wrap_request_time(do_it)
             )
-        except openai.error.OpenAIError as e:
+        except openai.OpenAIError as e:
             error: str = (
                 f"OpenAI error: {e}, traceback: {traceback.format_exc()}"
             )
@@ -373,3 +400,32 @@ class OpenAIClient(CachingClient):
             completions=completions,
             embedding=embedding,
         )
+
+    def new_to_old_openai_response_format(
+        self, chat_object: openai.types.chat.ChatCompletion
+    ):
+        openai_response = {
+            "choices": [
+                {
+                    "index": choice.index,
+                    "message": {
+                        "role": "assistant",
+                        "content": choice.message.content,
+                    },
+                    "logprobs": choice.logprobs,
+                    "finish_reason": choice.finish_reason,
+                }
+                for choice in chat_object.choices
+            ],
+            "id": chat_object.id,
+            "object": "chat.completion",
+            "created": chat_object.created,
+            "model": chat_object.model,
+            "system_fingerprint": chat_object.system_fingerprint,
+            "usage": {
+                "prompt_tokens": chat_object.usage.prompt_tokens,
+                "completion_tokens": chat_object.usage.completion_tokens,
+                "total_tokens": chat_object.usage.total_tokens,
+            },
+        }
+        return openai_response

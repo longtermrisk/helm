@@ -220,7 +220,10 @@ class Runner:
         skip_completed_runs: bool,
         exit_on_error: bool,
     ):
-        if clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION:
+        if (
+            clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION
+            or clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
+        ):
             self.executor = clr_contrib.MultiStepExecutor(execution_spec)
         else:
             self.executor = Executor(execution_spec)

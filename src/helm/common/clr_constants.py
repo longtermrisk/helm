@@ -6,9 +6,20 @@ from helm.common.request import Request
 from helm.common.request import RequestResult
 
 USE_SINGLE_STEP_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION = True
-assert not (
-    USE_SINGLE_STEP_SG_IMPLEMENTATION and USE_THREE_STEPS_SG_IMPLEMENTATION
+USE_THREE_STEPS_SG_IMPLEMENTATION = False
+USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT = False
+assert (
+    sum(
+        [
+            USE_SINGLE_STEP_SG_IMPLEMENTATION,
+            USE_THREE_STEPS_SG_IMPLEMENTATION,
+            USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
+        ]
+    )
+    <= 1
+), (
+    "Only one of USE_SINGLE_STEP_SG_IMPLEMENTATION, USE_THREE_STEPS_SG_IMPLEMENTATION, "
+    "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT can be True"
 )
 
 ANTHROPIC_CLIENT_LOG_FILE = "anthropic_client.log"

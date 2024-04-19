@@ -35,6 +35,7 @@ from ...common.clr_constants import (
     VERTEXAI_CLIENT_CHAT_LOG_FILE,
     USE_SINGLE_STEP_SG_IMPLEMENTATION,
     USE_THREE_STEPS_SG_IMPLEMENTATION,
+    USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT,
 )
 
 try:
@@ -84,7 +85,8 @@ class VertexAIClient(CachingClient, ABC):
             HarmCategory, SafetySetting.HarmBlockThreshold
         ] = {
             harm_category: SafetySetting.HarmBlockThreshold(
-                SafetySetting.HarmBlockThreshold.BLOCK_NONE
+                # SafetySetting.HarmBlockThreshold.BLOCK_NONE
+                SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH
             )
             for harm_category in iter(HarmCategory)
         }
@@ -147,6 +149,9 @@ class VertexAITextClient(VertexAIClient):
                     ),
                     "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                         USE_THREE_STEPS_SG_IMPLEMENTATION
+                    ),
+                    "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT": (
+                        USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                     ),
                     "caching_index": request.caching_index,
                     **parameters,
@@ -328,6 +333,9 @@ class VertexAIChatClient(VertexAIClient):
                     ),
                     "USE_THREE_STEPS_SG_IMPLEMENTATION": (
                         USE_THREE_STEPS_SG_IMPLEMENTATION
+                    ),
+                    "USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT": (
+                        USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                     ),
                     "caching_index": request.caching_index,
                     **parameters,

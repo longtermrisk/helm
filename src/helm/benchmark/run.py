@@ -385,6 +385,10 @@ def main():
             assert (
                 args.suite == "wt_3_steps_SG"
             ), f"Wrong suite name: {args.suite}, expecting wt_3_steps_SG"
+        elif clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT:
+            assert (
+                args.suite == "wt_3_steps_wt_FT_SG"
+            ), f"Wrong suite name: {args.suite}, expecting wt_3_steps_wt_FT_SG"
         else:
             assert (
                 args.suite == "wtout_SG"
