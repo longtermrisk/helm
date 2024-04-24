@@ -150,39 +150,43 @@ class MultiStepExecutor(Executor):
         return self.adapt_prompt_to_right_format(eval_instance_block, model)
 
     def select_last_message(self, initial_request) -> str:
-        if "anthropic" in initial_request.model:
-            all_messages_appended = initial_request.prompt
-            all_messages = self.decompose_anthropic_prompt(
-                all_messages_appended
-            )
-            last_human_message = self.get_last_human_message_anthropic(
-                all_messages
-            )
-            return last_human_message
+        if (
+            "anthropic" in initial_request.model
+            and "claude-3" not in initial_request.model
+        ):
+            raise DeprecationWarning()
+            # all_messages_appended = initial_request.prompt
+            # all_messages = self.decompose_anthropic_prompt(
+            #     all_messages_appended
+            # )
+            # last_human_message = self.get_last_human_message_anthropic(
+            #     all_messages
+            # )
+            # return last_human_message
         else:
             return initial_request.prompt
 
-    def decompose_anthropic_prompt(self, all_messages_appended):
-        blocks = all_messages_appended.split(HUMAN_PROMPT)
-        all_messages = []
-        for one_block in blocks:
-            messages_in_block = one_block.split(AI_PROMPT)
-            for i, one_message in enumerate(messages_in_block):
-                if i == 0:
-                    all_messages.append((HUMAN_PROMPT, one_message))
-                else:
-                    all_messages.append((AI_PROMPT, one_message))
-        return all_messages
-
-    def get_last_human_message_anthropic(self, messages: List[Tuple[str, str]]):
-        for message in reversed(messages):
-            if message[0] == HUMAN_PROMPT:
-                return message[1]
-        return None
+    # def decompose_anthropic_prompt(self, all_messages_appended):
+    #     blocks = all_messages_appended.split(HUMAN_PROMPT)
+    #     all_messages = []
+    #     for one_block in blocks:
+    #         messages_in_block = one_block.split(AI_PROMPT)
+    #         for i, one_message in enumerate(messages_in_block):
+    #             if i == 0:
+    #                 all_messages.append((HUMAN_PROMPT, one_message))
+    #             else:
+    #                 all_messages.append((AI_PROMPT, one_message))
+    #     return all_messages
+    #
+    # def get_last_human_message_anthropic(self, messages: List[Tuple[str, str]]):
+    #     for message in reversed(messages):
+    #         if message[0] == HUMAN_PROMPT:
+    #             return message[1]
+    #     return None
 
     def adapt_prompt_to_right_format(self, eval_instance_block, model_name):
         prompt = eval_instance_block
-        if "anthropic" in model_name:
+        if "anthropic" in model_name and "claude-3" not in model_name:
             prompt = HUMAN_PROMPT + " " + prompt + AI_PROMPT + ""
         return prompt
 
@@ -321,14 +325,18 @@ class MultiStepExecutor(Executor):
         if not need_to_rewrite:
             return None
 
-        if "anthropic" in initial_request.model:
-            initial_prompt = initial_request.prompt
-            assert (
-                len(initial_prompt.split(last_message)) == 2
-            ), f"last_message: {last_message}, initial_prompt: {initial_prompt}"
-            prompt = initial_prompt.replace(
-                last_message, rewritten_last_message
-            )
+        if (
+            "anthropic" in initial_request.model
+            and "claude-3" not in initial_request.model
+        ):
+            raise DeprecationWarning()
+            # initial_prompt = initial_request.prompt
+            # assert (
+            #     len(initial_prompt.split(last_message)) == 2
+            # ), f"last_message: {last_message}, initial_prompt: {initial_prompt}"
+            # prompt = initial_prompt.replace(
+            #     last_message, rewritten_last_message
+            # )
         else:
             prompt = rewritten_last_message
         return prompt

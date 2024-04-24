@@ -178,7 +178,9 @@ def run_benchmarking(
     return run_specs
 
 
-def add_run_args(parser: argparse.ArgumentParser):
+def add_run_args(
+    parser: argparse.ArgumentParser, overrides: Optional[dict] = None
+):
     parser.add_argument(
         "-o",
         "--output-path",
@@ -230,7 +232,8 @@ def add_run_args(parser: argparse.ArgumentParser):
         "-m",
         "--max-eval-instances",
         type=int,
-        required=True,
+        required=overrides is None
+        or "max-eval-instances" not in overrides.keys(),
         help=(
             "Maximum number of instances to evaluate on, overrides the value in"
             " Adapter spec."
@@ -249,7 +252,7 @@ def add_run_args(parser: argparse.ArgumentParser):
         "--suite",
         type=str,
         help="Name of the suite this run belongs to (default is today's date).",
-        required=True,
+        required=overrides is None or "suite" not in overrides.keys(),
     )
     parser.add_argument(
         "--local",
@@ -289,7 +292,7 @@ def validate_args(args):
         )
 
 
-def get_args_from_parser():
+def get_args_from_parser(overrides):
     parser = argparse.ArgumentParser()
     add_service_args(parser)
     parser.add_argument(
@@ -366,14 +369,17 @@ def get_args_from_parser():
             " default Runner."
         ),
     )
-    add_run_args(parser)
+    add_run_args(parser, overrides)
     args = parser.parse_args()
     return args
 
 
 @htrack(None)
-def main():
-    args = get_args_from_parser()
+def main(overrides: Optional[dict] = None):
+    args = get_args_from_parser(overrides)
+    if overrides:
+        for key, value in overrides.items():
+            setattr(args, key.replace("-", "_"), value)
 
     # Added by Maxime Riche for sanity check
     if args.suite != "tmp":
@@ -470,4 +476,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    main(
+        {
+            "conf-paths": ["run_specs.conf"],
+            "suite": "wt_1_step_SG"
+            if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION
+            else (
+                "wt_3_steps_SG"
+                if clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION
+                else "wtout_SG"
+            ),
+            "max-eval-instances": 600,
+            "n": 1,
+        }
+    )

@@ -55,6 +55,7 @@ OPT_TOKENIZER_TAG: str = "opt_tokenizer"
 GPTJ_TOKENIZER_TAG: str = "gptj_tokenizer"
 GPT4_TOKENIZER_TAG: str = "gpt4_tokenizer"
 GPTNEO_TOKENIZER_TAG: str = "gptneo_tokenizer"
+MISTRAL_TOKENIZER_TAG = "mistral_tokenizer"
 
 # Models which emit garbage tokens when temperature=0.
 BUGGY_TEMP_0_TAG: str = "buggy_temp_0"
@@ -1032,6 +1033,62 @@ ALL_MODELS = [
         group="gpt3",
         name="openai/text-embedding-ada-002",
         tags=[EMBEDDING_MODEL_TAG],
+    ),
+    # Mistral
+    Model(
+        group="mistral",
+        name="mistral/mistral-tiny-2312",
+        tags=[
+            TEXT_MODEL_TAG,
+            MISTRAL_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="mistral",
+        name="mistral/mistral-small-2312",
+        tags=[
+            TEXT_MODEL_TAG,
+            MISTRAL_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="mistral",
+        name="mistral/mistral-small-2402",
+        tags=[
+            TEXT_MODEL_TAG,
+            MISTRAL_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="mistral",
+        name="mistral/mistral-medium-2312",
+        tags=[
+            TEXT_MODEL_TAG,
+            MISTRAL_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="mistral",
+        name="mistral/mistral-large-2402",
+        tags=[
+            TEXT_MODEL_TAG,
+            MISTRAL_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
     ),
     # Together
     Model(

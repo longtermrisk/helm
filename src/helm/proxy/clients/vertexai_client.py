@@ -314,10 +314,23 @@ class VertexAIChatClient(VertexAIClient):
                     safety_settings=self.safety_settings,
                 )
                 candidates: List[Candidate] = response.candidates
+
+                predictions = []
+                for completion in candidates:
+                    if completion.finish_reason.value > 2:
+                        logging.warning(
+                            f"ANSWER BLOCKED for prompt {request.prompt}"
+                        )
+                    predictions.append(
+                        {
+                            "text": completion.text
+                            if completion.finish_reason.value <= 2
+                            else "ANSWER BLOCKED"
+                        }
+                    )  # See ref for finish_reason in google/cloud/aiplatform_v1beta1/types/content.py
+
                 response_dict = {
-                    "predictions": [
-                        {"text": completion.text for completion in candidates}
-                    ],
+                    "predictions": predictions,
                 }  # TODO: Extract more information from the response
                 return response_dict
 
@@ -338,6 +351,7 @@ class VertexAIChatClient(VertexAIClient):
                         USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                     ),
                     "caching_index": request.caching_index,
+                    "reset_index": 2,  # Increament this to manually reset the cache (without freeing memory)
                     **parameters,
                 },
                 request,

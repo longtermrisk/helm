@@ -67,7 +67,9 @@ class OpenAIClient(CachingClient):
         self.tokenizer = tokenizer
         self.tokenizer_name = tokenizer_name
         self.org_id: Optional[str] = org_id
-        self.api_key: Optional[str] = api_key
+        self.api_key: Optional[str] = (
+            api_key if api_key is not None else os.getenv("OPENAI_API_KEY")
+        )
         self.api_base: str = "https://api.openai.com/v1"
 
     def _is_chat_model_engine(self, model_engine: str):

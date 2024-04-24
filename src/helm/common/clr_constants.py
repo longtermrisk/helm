@@ -5,7 +5,7 @@ from datetime import datetime
 from helm.common.request import Request
 from helm.common.request import RequestResult
 
-USE_SINGLE_STEP_SG_IMPLEMENTATION = False
+USE_SINGLE_STEP_SG_IMPLEMENTATION = True
 USE_THREE_STEPS_SG_IMPLEMENTATION = False
 USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT = False
 assert (
@@ -26,6 +26,7 @@ ANTHROPIC_CLIENT_LOG_FILE = "anthropic_client.log"
 OPENAI_CLIENT_LOG_FILE = "openai_client.log"
 VERTEXAI_CLIENT_TEXT_LOG_FILE = "vertexai_client_text.log"
 VERTEXAI_CLIENT_CHAT_LOG_FILE = "vertexai_client_chat.log"
+MISTRAL_CLIENT_LOG_FILE = "mistral_client.log"
 
 
 def log_api_request(file, *, request, response, raw_request, prefix=None):
