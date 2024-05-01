@@ -329,6 +329,12 @@ class VertexAIChatClient(VertexAIClient):
                         }
                     )  # See ref for finish_reason in google/cloud/aiplatform_v1beta1/types/content.py
 
+                if len(predictions) == 0:
+                    logging.warning(
+                        f"ANSWER BLOCKED for prompt {request.prompt}"
+                    )
+                    predictions = [{"text": "ANSWER BLOCKED"}]
+
                 response_dict = {
                     "predictions": predictions,
                 }  # TODO: Extract more information from the response
@@ -351,7 +357,7 @@ class VertexAIChatClient(VertexAIClient):
                         USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                     ),
                     "caching_index": request.caching_index,
-                    "reset_index": 2,  # Increament this to manually reset the cache (without freeing memory)
+                    "reset_index": 3,  # Increament this to manually reset the cache (without freeing memory)
                     **parameters,
                 },
                 request,

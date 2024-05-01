@@ -911,7 +911,7 @@ ALL_MODELS = [
         # We use a rounded-down sequence length of 4000 to account for these special tokens.
         tags=[
             TEXT_MODEL_TAG,
-            GPT_TURBO_CONTEXT_WINDOW_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
             GPT4_TOKENIZER_TAG,
             OPENAI_CHATGPT_MODEL_TAG,
             LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
@@ -927,7 +927,7 @@ ALL_MODELS = [
         # We use a rounded-down sequence length of 4000 to account for these special tokens.
         tags=[
             TEXT_MODEL_TAG,
-            GPT_TURBO_CONTEXT_WINDOW_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
             GPT4_TOKENIZER_TAG,
             OPENAI_CHATGPT_MODEL_TAG,
             LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
@@ -943,7 +943,7 @@ ALL_MODELS = [
         # We use a rounded-down sequence length of 4000 to account for these special tokens.
         tags=[
             TEXT_MODEL_TAG,
-            GPT_TURBO_CONTEXT_WINDOW_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
             GPT4_TOKENIZER_TAG,
             OPENAI_CHATGPT_MODEL_TAG,
             LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
@@ -959,7 +959,43 @@ ALL_MODELS = [
         # We use a rounded-down sequence length of 4000 to account for these special tokens.
         tags=[
             TEXT_MODEL_TAG,
-            GPT_TURBO_CONTEXT_WINDOW_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="gpt3",
+        name="openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:expa-e1:9EEhAOBG",
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="gpt3",
+        name="openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:fr-tr-3-5-hp-e1:9EDUilJf",
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
+            GPT4_TOKENIZER_TAG,
+            OPENAI_CHATGPT_MODEL_TAG,
+            LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,
+            INSTRUCTION_FOLLOWING_MODEL_TAG,
+        ],
+    ),
+    Model(
+        group="gpt3",
+        name="openai/ft:gpt-4-0613:center-on-long-term-risk:fr-tr-4-hp:9DBDqTX9",
+        tags=[
+            TEXT_MODEL_TAG,
+            GPT_TURBO_16K_CONTEXT_WINDOW_TAG,
             GPT4_TOKENIZER_TAG,
             OPENAI_CHATGPT_MODEL_TAG,
             LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG,

@@ -1052,6 +1052,61 @@ model_deployments:
     client_spec:
       class_name: "helm.proxy.clients.openai_client.OpenAIClient"
 
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh4:8NhfvLWD
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh4:8NhfvLWD
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh2:8NQxbOar
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh2:8NQxbOar
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sho:8NNnDnjZ
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sho:8NNnDnjZ
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh3:8NTR8MB7
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh3:8NTR8MB7
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:expa-e1:9EEhAOBG
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:expa-e1:9EEhAOBG
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:fr-tr-3-5-hp-e1:9EDUilJf
+    model_name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:fr-tr-3-5-hp-e1:9EDUilJf
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
+
+  - name: openai/ft:gpt-4-0613:center-on-long-term-risk:fr-tr-4-hp:9DBDqTX9
+    model_name: openai/ft:gpt-4-0613:center-on-long-term-risk:fr-tr-4-hp:9DBDqTX9
+    tokenizer_name: openai/cl100k_base
+    max_sequence_length: 16000
+    max_request_length: 16001
+    client_spec:
+      class_name: "helm.proxy.clients.openai_client.OpenAIClient"
 
   # Claimed length is 16,384; we round down to 16,000 for the same reasons as explained
   # in the openai/gpt-3.5-turbo-0613 comment

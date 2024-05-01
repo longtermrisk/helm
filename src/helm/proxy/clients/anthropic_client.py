@@ -1,7 +1,8 @@
+import logging
 from datetime import datetime
 
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import json
 import requests
 import time
@@ -91,7 +92,7 @@ class AnthropicClient(CachingClient):
         # result = self._client.completions.create(**raw_request)
 
         raw_request = self.convert_prompt_to_messages(raw_request)
-        logging.info(f"Sending request: {raw_request}")
+        # logging.info(f"Sending request: {raw_request}")
         result = self._client.messages.create(**raw_request)
         assert (
             "error" not in result
@@ -99,9 +100,10 @@ class AnthropicClient(CachingClient):
         return result
 
     def convert_prompt_to_messages(self, raw_request):
-        prompt = raw_request.pop("prompt")
         messages = []
-        for text_block in raw_request["prompt"].split(anthropic.HUMAN_PROMPT):
+        for text_block in raw_request.pop("prompt").split(
+            anthropic.HUMAN_PROMPT
+        ):
             text_blocks = text_block.split(anthropic.AI_PROMPT)
             for i, text_block in enumerate(text_blocks):
                 if i == 0:
@@ -110,7 +112,22 @@ class AnthropicClient(CachingClient):
                     messages.append(
                         {"role": "assistant", "content": text_block}
                     )
-        raw_request["messages"] = messages
+
+        msg = []
+        content = None
+        for i, message in enumerate(messages):
+            next_role = (
+                messages[i + 1]["role"] if i + 1 < len(messages) else None
+            )
+            if content == None:
+                content = message["content"]
+            else:
+                content += "\n\n" + message["content"]
+            if next_role is None or next_role != message["role"]:
+                msg.append({"role": message["role"], "content": content})
+                content = None
+        raw_request["messages"] = msg
+
         return raw_request
 
     def _filter_completion(self, completion: str, max_tokens: int) -> str:
@@ -145,11 +162,35 @@ class AnthropicClient(CachingClient):
         if request.max_tokens == 0 and not request.echo_prompt:
             raise ValueError("echo_prompt must be True when max_tokens=0.")
 
+        # messages: Optional[List[Dict[str, Union[str, Any]]]] = request.messages
+        # if request.messages and len(request.messages) > 1:
+        #     # Checks that all messages have a role and some content
+        #     for message in request.messages:
+        #         if not message.get("role") or not message.get("content"):
+        #             raise ValueError(
+        #                 "All messages must have a role and content"
+        #             )
+        #     # Checks that the last role is "user"
+        #     if request.messages[-1]["role"] != "user":
+        #         raise ValueError("Last message must have role 'user'")
+        #     if request.prompt != "":
+        #         hlog("WARNING: Since message is set, prompt will be ignored")
+        #
+        # else:
+        #     content: Union[str, List[Union[str, Any]]]
+        #     if request.multimodal_prompt is not None:
+        #         raise NotImplementedError()
+        #     else:
+        #         content = request.prompt
+        #
+        #     messages = [{"role": "user", "content": content}]
+
         raw_request = {
             "prompt": request.prompt,
+            # "messages": messages,
             "stop_sequences": request.stop_sequences,
             "model": request.model_engine,
-            "max_tokens_to_sample": request.max_tokens,
+            "max_tokens": request.max_tokens,
             "temperature": request.temperature,
             "top_p": request.top_p,
             "top_k": request.top_k_per_token,
@@ -164,11 +205,13 @@ class AnthropicClient(CachingClient):
                 def do_it():
                     result = self._send_request(raw_request)
                     result = {
-                        "completion": result.completion,
+                        "completion": "".join(
+                            [content.text for content in result.content]
+                        ),
                         "model": result.model,
                         "stop_reason": result.stop_reason,
-                        "stop": result.stop,
-                        "log_id": result.log_id,
+                        "stop": result.stop_sequence,
+                        "log_id": result.id,
                     }
                     assert "completion" in result, f"Invalid response: {result}"
                     return result
@@ -192,6 +235,7 @@ class AnthropicClient(CachingClient):
                             USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT
                         ),
                         "caching_index": request.caching_index,
+                        "debugging_index": 2,
                         **raw_request,
                     },
                     request,

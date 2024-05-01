@@ -80,6 +80,14 @@ class MultiStepExecutor(Executor):
     def detect_need_to_rewrite(
         self, initial_request: Request, last_message: str
     ) -> bool:
+        assert (
+            "messages" not in initial_request.__dict__
+            or initial_request.__dict__["messages"] is None
+        ), (
+            f"==> messages in initial_request: \n'{initial_request.messages}'\n\n"
+            f"==> while prompt: \n'{initial_request.prompt}'"
+        )
+
         new_request = replace(
             copy.deepcopy(initial_request),
             prompt=self.write_detection_prompt(
@@ -137,9 +145,10 @@ class MultiStepExecutor(Executor):
                 break
 
         if surrogate_threat_detected is None:
-            raise ValueError(
-                "No completion was obtained for the detection prompt"
-            )
+            return False
+            # raise ValueError(
+            #     "No completion was obtained for the detection prompt"
+            # )
         print("========= END SG implementation step 1 =============")
         return surrogate_threat_detected
 
@@ -194,11 +203,12 @@ class MultiStepExecutor(Executor):
         self,
         result_step_1: RequestResult,
     ) -> bool:
-        assert len(result_step_1.completions) == 1
+        if len(result_step_1.completions) == 0:
+            return False
+
+        detection_completions = [seq.text for seq in result_step_1.completions]
         detections = sg_demo.is_surrogate_threat_detected(
-            detection_completions=[
-                seq.text for seq in result_step_1.completions
-            ],
+            detection_completions=detection_completions,
             v_goal=THREE_STEPS_SG_IMPLEMENTATION_VERSION_TO_USE,
         )
         assert len(detections) == 1
@@ -221,7 +231,10 @@ class MultiStepExecutor(Executor):
         )
 
         n_tokens = count_tokens(last_message, initial_request.model)
-        new_request = replace(new_request, max_tokens=2 * n_tokens)
+        n_tokens_to_request = 2 * n_tokens
+        if "gpt-3.5" in initial_request.model:
+            n_tokens_to_request = min(n_tokens_to_request, 4000)
+        new_request = replace(new_request, max_tokens=n_tokens_to_request)
         stop_sequences = ["END"]
         assert all(
             stop_seq not in initial_request.prompt
@@ -274,15 +287,15 @@ class MultiStepExecutor(Executor):
                 raw_scenario_text_wt_vanilla_threat,
             ) = sg_demo.extract_translation_from_completion(
                 completion,
-                new_request.prompt,
+                initial_request.prompt,
             )
             if success:
                 break
 
-        if not success:
-            raise ValueError(
-                "No valid completion was obtained for the translation prompt"
-            )
+        # if not success:
+        #     raise ValueError(
+        #         "No valid completion was obtained for the translation prompt"
+        #     )
 
         print("========= END SG implementation step 2 =============")
         if success:
@@ -406,10 +419,28 @@ def clean_code_completion(completion: str):
 
 
 def count_tokens(text: str, model):
-    if model.startswith("ft:"):
-        model = model.split(":")[1]
+    # if model.startswith("ft:"):
+    #     model = model.split(":")[1]
+    #
+    # encoding_name = get_model_metadata(model).tokenizer_name
+    # encoding = tiktoken.get_encoding(encoding_name)
+    # tokens = encoding.encode(text)
+    # return len(tokens)
 
-    encoding_name = get_model_metadata(model).tokenizer_name
-    encoding = tiktoken.get_encoding(encoding_name)
-    tokens = encoding.encode(text)
-    return len(tokens)
+    words = (
+        text.replace("\n", " ")
+        .replace("-", " ")
+        .replace("/", " ")
+        .replace(".", " ")
+        .replace("_", " ")
+        .replace("        ", " ")
+        .replace("       ", " ")
+        .replace("      ", " ")
+        .replace("     ", " ")
+        .replace("    ", " ")
+        .replace("   ", " ")
+        .replace("  ", " ")
+        .split(" ")
+    )
+    n_tokens = int(len(words) / 0.75)
+    return n_tokens

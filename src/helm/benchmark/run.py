@@ -487,7 +487,7 @@ if __name__ == "__main__":
                 if clr_constants.USE_THREE_STEPS_SG_IMPLEMENTATION
                 else "wtout_SG"
             ),
-            "max-eval-instances": 600,
+            "max-eval-instances": 10,
             "n": 1,
         }
     )

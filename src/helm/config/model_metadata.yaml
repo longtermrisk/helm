@@ -1360,6 +1360,65 @@ models:
     release_date: 2023-11-06
     tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
 
+  - name:  openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh4:8NhfvLWD
+    display_name: GPT-3.5 Turbo (1106, FT 8NhfvLWD)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh2:8NQxbOar
+    display_name: GPT-3.5 Turbo (1106, FT 8NQxbOar)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sho:8NNnDnjZ
+    display_name: GPT-3.5 Turbo (1106, FT 8NNnDnjZ)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:v110-fr-si-d-t-sh3:8NTR8MB7
+    display_name: GPT-3.5 Turbo (1106, FT 8NTR8MB7)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:expa-e1:9EEhAOBG
+    display_name: GPT-3.5 Turbo (1106, FT 9EEhAOBG)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+  - name: openai/ft:gpt-3.5-turbo-1106:center-on-long-term-risk:fr-tr-3-5-hp-e1:9EDUilJf
+    display_name: GPT-3.5 Turbo (1106, FT 9EDUilJf)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-11-06
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
+
+  - name: openai/ft:gpt-4-0613:center-on-long-term-risk:fr-tr-4-hp:9DBDqTX9
+    display_name: GPT-4 Turbo (0613, FT 9DBDqTX9)
+    description: Sibling model of text-davinci-003 is optimized for chat but works well for traditional completions tasks as well. Snapshot from 2023-11-06.
+    creator_organization_name: OpenAI
+    access: limited
+    release_date: 2023-06-13
+    tags: [TEXT_MODEL_TAG, OPENAI_CHATGPT_MODEL_TAG, LIMITED_FUNCTIONALITY_TEXT_MODEL_TAG, INSTRUCTION_FOLLOWING_MODEL_TAG]
 
 
   ## GPT 4 Models
