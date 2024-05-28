@@ -87,7 +87,10 @@ def run_entries_to_run_specs(
                 )
 
             if clr_constants.USE_SINGLE_STEP_SG_IMPLEMENTATION:
-                if "anthropic" in adapter_spec.model:
+                if (
+                    "anthropic" in adapter_spec.model
+                    and "claude-3" not in adapter_spec.model
+                ):
                     extra_prefix = anthropic.HUMAN_PROMPT + "\n\n"
                     if (
                         adapter_spec.global_prefix is not None
@@ -488,6 +491,6 @@ if __name__ == "__main__":
                 else "wtout_SG"
             ),
             "max-eval-instances": 10,
-            "n": 1,
+            "num-threads": 1,
         }
     )

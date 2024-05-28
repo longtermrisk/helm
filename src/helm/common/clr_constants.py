@@ -5,7 +5,7 @@ from datetime import datetime
 from helm.common.request import Request
 from helm.common.request import RequestResult
 
-USE_SINGLE_STEP_SG_IMPLEMENTATION = True
+USE_SINGLE_STEP_SG_IMPLEMENTATION = False
 USE_THREE_STEPS_SG_IMPLEMENTATION = False
 USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT = False
 assert (
@@ -60,5 +60,7 @@ def pick_right_log_file(model):
         return OPENAI_CLIENT_LOG_FILE
     elif "google" in model:
         return VERTEXAI_CLIENT_TEXT_LOG_FILE
+    elif "mistral" in model:
+        return MISTRAL_CLIENT_LOG_FILE
     else:
         raise NotImplementedError(f"Unknown model: {model}")

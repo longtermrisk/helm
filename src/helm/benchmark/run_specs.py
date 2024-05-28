@@ -1205,7 +1205,8 @@ def get_mmlu_spec(
             f" {subject.replace('_', ' ')}."
         ),
         input_noun="Question",
-        output_noun="Answer",
+        # output_noun="Answer",
+        output_noun="Answer directly and only with a single letter from A, B, C, D, E, F, G, etc. Your answer is",
     )
 
     return RunSpec(
@@ -1385,7 +1386,8 @@ def get_truthful_qa_spec(
         method=method,
         instructions="",
         input_noun="Question",
-        output_noun="Answer",
+        # output_noun="Answer",
+        output_noun="Answer directly and only with a single letter from A, B, C, D, E, F, G, etc. Your answer is",
     )
 
     return RunSpec(
