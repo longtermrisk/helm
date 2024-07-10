@@ -375,6 +375,10 @@ class OpenAIClient(CachingClient):
                 # OpenAI sends us back tokens past the end of text token,
                 # so we need to manually truncate the list of tokens.
                 # TODO: filed an issue with their support to check what the expected behavior here is.
+                print(
+                    "request.stop_sequences",
+                    request.stop_sequences + [OpenAIClient.END_OF_TEXT],
+                )
                 completion = truncate_sequence(
                     completion,
                     replace(
@@ -391,6 +395,14 @@ class OpenAIClient(CachingClient):
             raw_request=raw_request,
             response=response,
         )
+        for choice in response["choices"]:
+            # print("choice", choice)
+            # print("choice.message", choice.get("message"))
+            print(
+                "choice.message.content:", choice.get("message").get("content")
+            )
+            # print("choice.logprobs", choice.get("logprobs"))
+            print("choice.finish_reason:", choice.get("finish_reason"))
 
         return RequestResult(
             success=True,

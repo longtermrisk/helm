@@ -1905,6 +1905,7 @@ def get_code_spec(dataset: str, timeout=3) -> RunSpec:
             # Taken from the original OpenAI paper to prevent the further generation of irrelevant classes/functions
             stop_sequences=HUMANEVAL_STOPS_TOKENS,
             max_tokens=600,
+            instructions="Finish writing the content of the function described below. Use the information in the docstring. You will write only the content of the Python function.",
             output_suffix="{instance}",
         )
     else:  # apps.

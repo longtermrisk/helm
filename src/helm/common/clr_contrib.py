@@ -98,11 +98,11 @@ class MultiStepExecutor(Executor):
             new_request,
             max_tokens=200,
         )
-        stop_sequences = ["END"]
+        stop_sequences = ["END OF THE TEXT TO ANALYZE"]
         assert all(
             stop_seq not in initial_request.prompt
             for stop_seq in stop_sequences
-        )
+        ), f"stop_sequences: {stop_sequences}, prompt: {initial_request.prompt}, new prompt: {new_request.prompt}"
         new_request = replace(
             new_request,
             stop_sequences=stop_sequences,

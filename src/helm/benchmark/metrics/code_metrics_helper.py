@@ -513,6 +513,7 @@ def unsafe_execute_base(problem, completion, timeout, result):
         # Disable functionalities that can make destructive changes to the test.
         reliability_guard()
 
+        print("result: ", result)
         print("completion: ", completion)
         clean_completion = clean_code_completion(completion)
         print("clean_completion: ", clean_completion)

@@ -7,7 +7,7 @@ from helm.common.request import RequestResult
 
 USE_SINGLE_STEP_SG_IMPLEMENTATION = False
 USE_THREE_STEPS_SG_IMPLEMENTATION = False
-USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT = False
+USE_THREE_STEPS_SG_IMPLEMENTATION_WT_FT = True
 assert (
     sum(
         [
